@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>APIs &amp; Web Scraping for Medical &amp; Public Health Research</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="Untitled-1_files/libs/clipboard/clipboard.min.js"></script>
+<script src="Untitled-1_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="Untitled-1_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="Untitled-1_files/libs/quarto-html/popper.min.js"></script>
+<script src="Untitled-1_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="Untitled-1_files/libs/quarto-html/anchor.min.js"></script>
+<link href="Untitled-1_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="Untitled-1_files/libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="Untitled-1_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="Untitled-1_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="Untitled-1_files/libs/bootstrap/bootstrap-8ffd5f67044e5306d9846f29df41dda5.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="Untitled-1_files/libs/tabwid-1.1.3/tabwid.css" rel="stylesheet">
+<script src="Untitled-1_files/libs/tabwid-1.1.3/tabwid.js"></script>
+
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#packages" id="toc-packages" class="nav-link active" data-scroll-target="#packages">Packages</a></li>
+  <li><a href="#welcome-goals" id="toc-welcome-goals" class="nav-link" data-scroll-target="#welcome-goals">Welcome + goals</a>
+  <ul class="collapse">
+  <li><a href="#agenda" id="toc-agenda" class="nav-link" data-scroll-target="#agenda">Agenda</a></li>
+  <li><a href="#ground-rules-research-integrity-compliance" id="toc-ground-rules-research-integrity-compliance" class="nav-link" data-scroll-target="#ground-rules-research-integrity-compliance">Ground rules (research integrity + compliance)</a></li>
+  </ul></li>
+  <li><a href="#part-1-apis" id="toc-part-1-apis" class="nav-link" data-scroll-target="#part-1-apis">Part 1 — APIs</a>
+  <ul class="collapse">
+  <li><a href="#what-is-an-api" id="toc-what-is-an-api" class="nav-link" data-scroll-target="#what-is-an-api">What is an API?</a></li>
+  <li><a href="#common-data-formats-csv-json-and-xml" id="toc-common-data-formats-csv-json-and-xml" class="nav-link" data-scroll-target="#common-data-formats-csv-json-and-xml">Common data formats: CSV, JSON, and XML</a>
+  <ul class="collapse">
+  <li><a href="#csv-comma-separated-values" id="toc-csv-comma-separated-values" class="nav-link" data-scroll-target="#csv-comma-separated-values">CSV (Comma-Separated Values)</a></li>
+  <li><a href="#json-javascript-object-notation" id="toc-json-javascript-object-notation" class="nav-link" data-scroll-target="#json-javascript-object-notation">JSON (JavaScript Object Notation)</a></li>
+  <li><a href="#xml-extensible-markup-language" id="toc-xml-extensible-markup-language" class="nav-link" data-scroll-target="#xml-extensible-markup-language">XML (eXtensible Markup Language)</a></li>
+  <li><a href="#research-workflow" id="toc-research-workflow" class="nav-link" data-scroll-target="#research-workflow">Research workflow</a></li>
+  </ul></li>
+  <li><a href="#why-apis-are-preferred" id="toc-why-apis-are-preferred" class="nav-link" data-scroll-target="#why-apis-are-preferred">Why APIs are preferred</a>
+  <ul class="collapse">
+  <li><a href="#what-is-pagination" id="toc-what-is-pagination" class="nav-link" data-scroll-target="#what-is-pagination">What is pagination?</a></li>
+  </ul></li>
+  <li><a href="#core-vocabulary-fast" id="toc-core-vocabulary-fast" class="nav-link" data-scroll-target="#core-vocabulary-fast">Core vocabulary (fast)</a></li>
+  <li><a href="#restful-apis-in-biomedicalpublic-health-research" id="toc-restful-apis-in-biomedicalpublic-health-research" class="nav-link" data-scroll-target="#restful-apis-in-biomedicalpublic-health-research">RESTful APIs in biomedical/public health research</a>
+  <ul class="collapse">
+  <li><a href="#the-core-idea-resources-representations" id="toc-the-core-idea-resources-representations" class="nav-link" data-scroll-target="#the-core-idea-resources-representations">The core idea: resources + representations</a></li>
+  <li><a href="#common-http-methods-what-they-mean" id="toc-common-http-methods-what-they-mean" class="nav-link" data-scroll-target="#common-http-methods-what-they-mean">Common HTTP methods (what they <em>mean</em>)</a></li>
+  <li><a href="#status-codes-you-will-see-and-how-to-respond" id="toc-status-codes-you-will-see-and-how-to-respond" class="nav-link" data-scroll-target="#status-codes-you-will-see-and-how-to-respond">Status codes you will see (and how to respond)</a></li>
+  <li><a href="#headers-metadata-about-the-requestresponse" id="toc-headers-metadata-about-the-requestresponse" class="nav-link" data-scroll-target="#headers-metadata-about-the-requestresponse">Headers (metadata about the request/response)</a></li>
+  <li><a href="#parameters-and-filtering" id="toc-parameters-and-filtering" class="nav-link" data-scroll-target="#parameters-and-filtering">Parameters and filtering</a></li>
+  <li><a href="#data-formats-json-and-tidying" id="toc-data-formats-json-and-tidying" class="nav-link" data-scroll-target="#data-formats-json-and-tidying">Data formats: JSON and “tidying”</a></li>
+  <li><a href="#provenance-what-to-record-for-methodsreproducibility" id="toc-provenance-what-to-record-for-methodsreproducibility" class="nav-link" data-scroll-target="#provenance-what-to-record-for-methodsreproducibility">Provenance: what to record for methods/reproducibility</a></li>
+  </ul></li>
+  <li><a href="#how-biomedical-researchers-use-apis-examples" id="toc-how-biomedical-researchers-use-apis-examples" class="nav-link" data-scroll-target="#how-biomedical-researchers-use-apis-examples">How biomedical researchers use APIs (examples)</a></li>
+  <li><a href="#api-workflow-the-researcher-loop" id="toc-api-workflow-the-researcher-loop" class="nav-link" data-scroll-target="#api-workflow-the-researcher-loop">API workflow (the “researcher loop”)</a></li>
+  <li><a href="#demonstration-approach-today-language-agnostic" id="toc-demonstration-approach-today-language-agnostic" class="nav-link" data-scroll-target="#demonstration-approach-today-language-agnostic">Demonstration approach today (language-agnostic)</a></li>
+  </ul></li>
+  <li><a href="#part-2-publicly-available-apis-tour" id="toc-part-2-publicly-available-apis-tour" class="nav-link" data-scroll-target="#part-2-publicly-available-apis-tour">Part 2 — Publicly available APIs (tour)</a>
+  <ul class="collapse">
+  <li><a href="#public-health-biomedical-apis-you-can-use" id="toc-public-health-biomedical-apis-you-can-use" class="nav-link" data-scroll-target="#public-health-biomedical-apis-you-can-use">Public health / biomedical APIs you can use</a></li>
+  <li><a href="#apis-in-the-tools-you-already-use-redcap-r-packages-python-libraries" id="toc-apis-in-the-tools-you-already-use-redcap-r-packages-python-libraries" class="nav-link" data-scroll-target="#apis-in-the-tools-you-already-use-redcap-r-packages-python-libraries">APIs in the tools you already use (REDCap | R packages | Python libraries)</a>
+  <ul class="collapse">
+  <li><a href="#redcap-apis-download-and-upload" id="toc-redcap-apis-download-and-upload" class="nav-link" data-scroll-target="#redcap-apis-download-and-upload">REDCap APIs (download <em>and</em> upload)</a></li>
+  <li><a href="#r-packages-that-provide-api-style-access" id="toc-r-packages-that-provide-api-style-access" class="nav-link" data-scroll-target="#r-packages-that-provide-api-style-access">R packages that provide API-style access</a></li>
+  </ul></li>
+  <li><a href="#choosing-an-api-dataset-quick-criteria" id="toc-choosing-an-api-dataset-quick-criteria" class="nav-link" data-scroll-target="#choosing-an-api-dataset-quick-criteria">Choosing an API dataset (quick criteria)</a></li>
+  <li><a href="#api-demonstrations-one-per-source" id="toc-api-demonstrations-one-per-source" class="nav-link" data-scroll-target="#api-demonstrations-one-per-source">API demonstrations (one per source)</a>
+  <ul class="collapse">
+  <li><a href="#nhanes-r-package-survey-data-access" id="toc-nhanes-r-package-survey-data-access" class="nav-link" data-scroll-target="#nhanes-r-package-survey-data-access">NHANES R package — survey data access</a></li>
+  <li><a href="#pubmed-ncbi-e-utilities-literature-metadata" id="toc-pubmed-ncbi-e-utilities-literature-metadata" class="nav-link" data-scroll-target="#pubmed-ncbi-e-utilities-literature-metadata">PubMed (NCBI E-utilities) — literature metadata</a></li>
+  <li><a href="#clinicaltrials.gov-trial-registry-metadata" id="toc-clinicaltrials.gov-trial-registry-metadata" class="nav-link" data-scroll-target="#clinicaltrials.gov-trial-registry-metadata">ClinicalTrials.gov — trial registry metadata</a></li>
+  <li><a href="#openfda-adverse-events-labeling" id="toc-openfda-adverse-events-labeling" class="nav-link" data-scroll-target="#openfda-adverse-events-labeling">OpenFDA — adverse events / labeling</a></li>
+  <li><a href="#cdc-open-data-socrata-style" id="toc-cdc-open-data-socrata-style" class="nav-link" data-scroll-target="#cdc-open-data-socrata-style">CDC open data (Socrata-style)</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#part-3-census-api-token-joins" id="toc-part-3-census-api-token-joins" class="nav-link" data-scroll-target="#part-3-census-api-token-joins">Part 3 — Census API (token + joins)</a>
+  <ul class="collapse">
+  <li><a href="#why-the-censusacs-matters-in-health-research" id="toc-why-the-censusacs-matters-in-health-research" class="nav-link" data-scroll-target="#why-the-censusacs-matters-in-health-research">Why the Census/ACS matters in health research</a></li>
+  <li><a href="#getting-a-census-api-token" id="toc-getting-a-census-api-token" class="nav-link" data-scroll-target="#getting-a-census-api-token">Getting a Census API token</a></li>
+  <li><a href="#store-your-census-key-r-example" id="toc-store-your-census-key-r-example" class="nav-link" data-scroll-target="#store-your-census-key-r-example">Store your Census key (R example)</a></li>
+  <li><a href="#load-your-census-api-key-from-environment-variables-r-example" id="toc-load-your-census-api-key-from-environment-variables-r-example" class="nav-link" data-scroll-target="#load-your-census-api-key-from-environment-variables-r-example">Load your Census API key from environment variables (R example)</a></li>
+  <li><a href="#test-your-key-and-make-a-simple-request-r-example" id="toc-test-your-key-and-make-a-simple-request-r-example" class="nav-link" data-scroll-target="#test-your-key-and-make-a-simple-request-r-example">Test your key and make a simple request (R example)</a></li>
+  <li><a href="#census-api-geographies-joins" id="toc-census-api-geographies-joins" class="nav-link" data-scroll-target="#census-api-geographies-joins">Census API: geographies + joins</a>
+  <ul class="collapse">
+  <li><a href="#guide-to-us-census-bureau-data-tables-acs" id="toc-guide-to-us-census-bureau-data-tables-acs" class="nav-link" data-scroll-target="#guide-to-us-census-bureau-data-tables-acs">Guide to US Census Bureau Data Tables (ACS)</a></li>
+  </ul></li>
+  <li><a href="#now-we-can-build-a-nice-table-to-display-the-population-estimates-by-county-along-with-the-margin-of-error-and-the-percentage-of-the-state-population." id="toc-now-we-can-build-a-nice-table-to-display-the-population-estimates-by-county-along-with-the-margin-of-error-and-the-percentage-of-the-state-population." class="nav-link" data-scroll-target="#now-we-can-build-a-nice-table-to-display-the-population-estimates-by-county-along-with-the-margin-of-error-and-the-percentage-of-the-state-population.">Now we can build a nice table to display the population estimates by county, along with the margin of error and the percentage of the state population.</a></li>
+  <li><a href="#now-you-can-call-the-build_county_pop_table-function-to-display-the-formatted-table-of-population-estimates-by-county-in-connecticut." id="toc-now-you-can-call-the-build_county_pop_table-function-to-display-the-formatted-table-of-population-estimates-by-county-in-connecticut." class="nav-link" data-scroll-target="#now-you-can-call-the-build_county_pop_table-function-to-display-the-formatted-table-of-population-estimates-by-county-in-connecticut.">Now you can call the <code>build_county_pop_table()</code> function to display the formatted table of population estimates by county in Connecticut.</a></li>
+  </ul></li>
+  <li><a href="#wrapping-it-all-up-from-curiosity-to-pipeline" id="toc-wrapping-it-all-up-from-curiosity-to-pipeline" class="nav-link" data-scroll-target="#wrapping-it-all-up-from-curiosity-to-pipeline">Wrapping it all up – From curiosity to pipeline</a>
+  <ul class="collapse">
+  <li><a href="#common-skeleton" id="toc-common-skeleton" class="nav-link" data-scroll-target="#common-skeleton">1. Common skeleton</a></li>
+  <li><a href="#reproducibility-checklist" id="toc-reproducibility-checklist" class="nav-link" data-scroll-target="#reproducibility-checklist">2. Reproducibility checklist</a></li>
+  <li><a href="#where-to-go-next" id="toc-where-to-go-next" class="nav-link" data-scroll-target="#where-to-go-next">3. Where to go next</a></li>
+  <li><a href="#key-takeaway" id="toc-key-takeaway" class="nav-link" data-scroll-target="#key-takeaway">4. Key takeaway</a></li>
+  </ul></li>
+  <li><a href="#web-scraping" id="toc-web-scraping" class="nav-link" data-scroll-target="#web-scraping">Web scraping</a>
+  <ul class="collapse">
+  <li><a href="#what-is-web-scraping" id="toc-what-is-web-scraping" class="nav-link" data-scroll-target="#what-is-web-scraping">What is web scraping?</a></li>
+  <li><a href="#today-we-will-be-scrapping-a-wikipedia-page-to-extract-gloabal-covid-cases-and-deaths-by-country" id="toc-today-we-will-be-scrapping-a-wikipedia-page-to-extract-gloabal-covid-cases-and-deaths-by-country" class="nav-link" data-scroll-target="#today-we-will-be-scrapping-a-wikipedia-page-to-extract-gloabal-covid-cases-and-deaths-by-country">Today we will be scrapping a Wikipedia page to extract gloabal COVID cases and deaths by country</a>
+  <ul class="collapse">
+  <li><a href="#step-1-open-the-page-inspect-it" id="toc-step-1-open-the-page-inspect-it" class="nav-link" data-scroll-target="#step-1-open-the-page-inspect-it">STEP 1 – Open the page &amp; inspect it</a></li>
+  <li><a href="#step-2-identify-the-table-in-the-html-structure" id="toc-step-2-identify-the-table-in-the-html-structure" class="nav-link" data-scroll-target="#step-2-identify-the-table-in-the-html-structure">STEP 2 – Identify the table in the HTML structure</a></li>
+  <li><a href="#step-3-use-r-to-read-the-html-and-extract-the-table" id="toc-step-3-use-r-to-read-the-html-and-extract-the-table" class="nav-link" data-scroll-target="#step-3-use-r-to-read-the-html-and-extract-the-table">STEP 3 – Use R to read the HTML and extract the table</a></li>
+  </ul></li>
+  <li><a href="#this-works-but-its-not-very-reusable.-if-we-want-to-scrape-another-table-on-the-same-page-wed-have-to-copy-paste-and-change-the-xpath-again.-lets-make-a-function-to-do-this-more-cleanly." id="toc-this-works-but-its-not-very-reusable.-if-we-want-to-scrape-another-table-on-the-same-page-wed-have-to-copy-paste-and-change-the-xpath-again.-lets-make-a-function-to-do-this-more-cleanly." class="nav-link" data-scroll-target="#this-works-but-its-not-very-reusable.-if-we-want-to-scrape-another-table-on-the-same-page-wed-have-to-copy-paste-and-change-the-xpath-again.-lets-make-a-function-to-do-this-more-cleanly.">This works, but it’s not very reusable. If we want to scrape another table on the same page, we’d have to copy-paste and change the XPath again. Let’s make a function to do this more cleanly.</a></li>
+  </ul></li>
+  <li><a href="#wrapping-up" id="toc-wrapping-up" class="nav-link" data-scroll-target="#wrapping-up">Wrapping Up</a>
+  <ul class="collapse">
+  <li><a href="#key-take-aways" id="toc-key-take-aways" class="nav-link" data-scroll-target="#key-take-aways">1. Key take-aways</a></li>
+  <li><a href="#suggested-next-steps" id="toc-suggested-next-steps" class="nav-link" data-scroll-target="#suggested-next-steps">2. Suggested next steps</a></li>
+  <li><a href="#handy-links" id="toc-handy-links" class="nav-link" data-scroll-target="#handy-links">3. Handy links</a></li>
+  <li><a href="#thank-you-stay-connected" id="toc-thank-you-stay-connected" class="nav-link" data-scroll-target="#thank-you-stay-connected">4. Thank you &amp; stay connected!</a></li>
+  </ul></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">APIs &amp; Web Scraping for Medical &amp; Public Health Research</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="packages" class="level1">
+<h1>Packages</h1>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- setup: install + load everything we use ----</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">requireNamespace</span>(<span class="st">"pacman"</span>, <span class="at">quietly =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">install.packages</span>(<span class="st">"pacman"</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># tidy data / grammar of data</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  tidyverse,        <span class="co"># ggplot2, dplyr, tidyr, readr, purrr, tibble, stringr, forcats</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  dplyr, tibble,    <span class="co"># (listed explicitly in some chunks)</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  purrr, stringr,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  janitor,           <span class="co"># clean_names() and other data cleaning helpers</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># HTTP / API helpers</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  httr2, httr, jsonlite,</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Census</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  tidycensus, censusapi,</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># NHANES</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  NHANES, nhanesA,</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Tables &amp; formatting</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  flextable, scales,</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Misc (reading local CSVs in join example)</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  readr,</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Web scraping</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  rvest</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="welcome-goals" class="level1">
+<h1>Welcome + goals</h1>
+<p><strong>Today you’ll learn to:</strong></p>
+<ul>
+<li>Explain what an API is and why researchers use them</li>
+<li>Make API requests and parse JSON into analysis-ready tables using R and Python</li>
+<li>Use public health / biomedical APIs (including the Census API)</li>
+<li>Understand when web scraping is appropriate and how to do it responsibly</li>
+<li>Scrape a simple site; understand authenticated scraping patterns (safely)</li>
+</ul>
+<p><strong>Why it matters</strong></p>
+<ul>
+<li>Reproducible data retrieval</li>
+<li>Faster updates and larger-scale studies</li>
+<li>Cleaner provenance (query + timestamp + version)</li>
+</ul>
+<section id="agenda" class="level2">
+<h2 class="anchored" data-anchor-id="agenda">Agenda</h2>
+<ol type="1">
+<li>API fundamentals</li>
+<li>API workflow demonstrations<br>
+</li>
+<li>Public health &amp; biomedical APIs<br>
+</li>
+<li>Census API example<br>
+</li>
+<li>Web scraping concepts + ethics<br>
+</li>
+<li>Reproducibility checklist + resources</li>
+</ol>
+</section>
+<section id="ground-rules-research-integrity-compliance" class="level2">
+<h2 class="anchored" data-anchor-id="ground-rules-research-integrity-compliance">Ground rules (research integrity + compliance)</h2>
+<ul>
+<li>Prefer <strong>official APIs</strong> and <strong>bulk downloads</strong> over scraping</li>
+<li>Respect <strong>terms of use</strong>, <strong>rate limits</strong>, and institutional policy</li>
+<li>Avoid collecting <strong>PII/PHI</strong></li>
+<li>Use <strong>caching</strong> and <strong>delays</strong> to minimize server load</li>
+<li>Document provenance: <em>what you requested, when, from where</em></li>
+</ul>
+</section>
+</section>
+<section id="part-1-apis" class="level1">
+<h1>Part 1 — APIs</h1>
+<section id="what-is-an-api" class="level2">
+<h2 class="anchored" data-anchor-id="what-is-an-api">What is an API?</h2>
+<p>An <strong>Application Programming Interface (API)</strong> is a structured way to request data from a service.</p>
+<p>For researchers, APIs are “programmable search + download”:</p>
+<ul>
+<li>predictable formats (often <strong>JSON</strong> but sometimes <strong>XML</strong> or <strong>CSV</strong>)</li>
+<li>documented inputs (parameters)</li>
+<li>standardized outputs (fields)</li>
+</ul>
+</section>
+<section id="common-data-formats-csv-json-and-xml" class="level2">
+<h2 class="anchored" data-anchor-id="common-data-formats-csv-json-and-xml">Common data formats: CSV, JSON, and XML</h2>
+<p>APIs commonly return data in <strong>JSON</strong> or <strong>XML</strong>, while researchers often analyze data in tabular formats like <strong>CSV</strong>.</p>
+<section id="csv-comma-separated-values" class="level3">
+<h3 class="anchored" data-anchor-id="csv-comma-separated-values">CSV (Comma-Separated Values)</h3>
+<p>A CSV is a plain-text table: - rows = observations - columns = variables - easy to open in Excel, R, Python, or Stata</p>
+<p>Example:</p>
+<pre class="csv"><code>id,age,sex
+101,42,F
+102,35,M</code></pre>
+</section>
+<section id="json-javascript-object-notation" class="level3">
+<h3 class="anchored" data-anchor-id="json-javascript-object-notation">JSON (JavaScript Object Notation)</h3>
+<p>JSON stores data as nested key–value structures:</p>
+<ul>
+<li>flexible and web-friendly</li>
+<li>commonly used in modern APIs</li>
+<li>may require “flattening” into tables</li>
+</ul>
+<p>Example:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">[</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"id"</span><span class="fu">:</span> <span class="dv">101</span><span class="fu">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"age"</span><span class="fu">:</span> <span class="dv">42</span><span class="fu">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"sex"</span><span class="fu">:</span> <span class="st">"F"</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"id"</span><span class="fu">:</span> <span class="dv">102</span><span class="fu">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"age"</span><span class="fu">:</span> <span class="dv">35</span><span class="fu">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"sex"</span><span class="fu">:</span> <span class="st">"M"</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="ot">]</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="xml-extensible-markup-language" class="level3">
+<h3 class="anchored" data-anchor-id="xml-extensible-markup-language">XML (eXtensible Markup Language)</h3>
+<p>XML organizes data using nested tags:</p>
+<ul>
+<li>older but still widely used in biomedical and government systems</li>
+<li>highly structured and descriptive</li>
+<li>commonly seen in legacy APIs and document-based databases</li>
+</ul>
+<p>Example:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode xml code-with-copy"><code class="sourceCode xml"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">participants</span>&gt;</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">participant</span>&gt;</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">id</span>&gt;101&lt;/<span class="kw">id</span>&gt;</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">age</span>&gt;42&lt;/<span class="kw">age</span>&gt;</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">sex</span>&gt;F&lt;/<span class="kw">sex</span>&gt;</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  &lt;/<span class="kw">participant</span>&gt;</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">participant</span>&gt;</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">id</span>&gt;102&lt;/<span class="kw">id</span>&gt;</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">age</span>&gt;35&lt;/<span class="kw">age</span>&gt;</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">sex</span>&gt;M&lt;/<span class="kw">sex</span>&gt;</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  &lt;/<span class="kw">participant</span>&gt;</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">participants</span>&gt;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="research-workflow" class="level3">
+<h3 class="anchored" data-anchor-id="research-workflow">Research workflow</h3>
+<p>A common workflow is:</p>
+<p>API request → JSON/XML response → parse/clean → tabular dataset (CSV/data frame)</p>
+</section>
+</section>
+<section id="why-apis-are-preferred" class="level2">
+<h2 class="anchored" data-anchor-id="why-apis-are-preferred">Why APIs are preferred</h2>
+<ul>
+<li><strong>Reproducible</strong>: same query, same retrieval method</li>
+<li><strong>More stable</strong>: APIs change less often than website layouts</li>
+<li><strong>Automatable</strong>: supports batching, scheduling, and pipelines</li>
+<li><strong>Transparent</strong>: explicit parameters, documentation, and usage rules</li>
+</ul>
+<section id="what-is-pagination" class="level3">
+<h3 class="anchored" data-anchor-id="what-is-pagination">What is pagination?</h3>
+<p><strong>Pagination</strong> is how an API delivers large result sets in smaller “pages” to control load and response size.</p>
+<p>Why pagination exists:</p>
+<ul>
+<li>prevents oversized responses</li>
+<li>improves reliability</li>
+<li>supports rate limiting</li>
+</ul>
+</section>
+</section>
+<section id="core-vocabulary-fast" class="level2">
+<h2 class="anchored" data-anchor-id="core-vocabulary-fast">Core vocabulary (fast)</h2>
+<ul>
+<li><strong>Endpoint</strong>: the URL for a resource (e.g., <code>/search</code>)</li>
+<li><strong>Method</strong>: <code>GET</code> (retrieve), <code>POST</code> (submit query)</li>
+<li><strong>Parameters</strong>: filters like <code>?year=2023&amp;state=CT</code></li>
+<li><strong>Auth</strong>: key/token, sometimes OAuth</li>
+<li><strong>Rate limits</strong>: requests per time period</li>
+<li><strong>Pagination</strong>: page/offset/cursor for large results</li>
+<li><strong>Response</strong>: JSON objects you parse into tables</li>
+</ul>
+</section>
+<section id="restful-apis-in-biomedicalpublic-health-research" class="level2">
+<h2 class="anchored" data-anchor-id="restful-apis-in-biomedicalpublic-health-research">RESTful APIs in biomedical/public health research</h2>
+<p>Many health and public data services expose <strong>RESTful</strong> (or “REST-like”) APIs. REST isn’t a single technology; it’s a design style that makes APIs predictable and interoperable.</p>
+<section id="the-core-idea-resources-representations" class="level3">
+<h3 class="anchored" data-anchor-id="the-core-idea-resources-representations">The core idea: resources + representations</h3>
+<p>In REST-style APIs, you interact with <strong>resources</strong> (things) using URLs, and you receive <strong>representations</strong> (often JSON) of those resources.</p>
+<p>Examples of “resources” in biomedical/public health contexts: - a publication record - a clinical trial - an adverse event report - a county-level indicator - a dataset row in an open-data portal</p>
+</section>
+<section id="common-http-methods-what-they-mean" class="level3">
+<h3 class="anchored" data-anchor-id="common-http-methods-what-they-mean">Common HTTP methods (what they <em>mean</em>)</h3>
+<ul>
+<li><code>GET</code> — retrieve data (most common for research data pulls)</li>
+<li><code>POST</code> — submit a query or create a record (common for complex searches; also for systems like REDCap when writing data)</li>
+<li><code>PUT/PATCH</code> — update a record (more common in operational systems than public datasets)</li>
+<li><code>DELETE</code> — remove a record (rare in public data APIs)</li>
+</ul>
+<p><strong>Research norm:</strong> you’ll primarily use <code>GET</code>, and occasionally <code>POST</code> for “search” endpoints or authenticated systems.</p>
+</section>
+<section id="status-codes-you-will-see-and-how-to-respond" class="level3">
+<h3 class="anchored" data-anchor-id="status-codes-you-will-see-and-how-to-respond">Status codes you will see (and how to respond)</h3>
+<ul>
+<li><code>200 OK</code> — success</li>
+<li><code>400 Bad Request</code> — your parameters are malformed</li>
+<li><code>401 Unauthorized</code> — missing/invalid token</li>
+<li><code>403 Forbidden</code> — you’re authenticated but not allowed (permissions/terms)</li>
+<li><code>404 Not Found</code> — wrong endpoint or resource ID</li>
+<li><code>429 Too Many Requests</code> — you hit a rate limit (slow down; retry later)</li>
+<li><code>500/503</code> — server problems (retry with backoff)</li>
+</ul>
+</section>
+<section id="headers-metadata-about-the-requestresponse" class="level3">
+<h3 class="anchored" data-anchor-id="headers-metadata-about-the-requestresponse">Headers (metadata about the request/response)</h3>
+<p>Headers often matter in practice: - <code>Accept: application/json</code> — ask for JSON - <code>User-Agent</code> — identify your tool (polite practice for scraping; sometimes for APIs too) - <code>Authorization: Bearer &lt;token&gt;</code> — common token format - API key headers (varies by service)</p>
+</section>
+<section id="parameters-and-filtering" class="level3">
+<h3 class="anchored" data-anchor-id="parameters-and-filtering">Parameters and filtering</h3>
+<p>Most APIs let you filter/shape results using query parameters, such as: - date ranges: <code>start_date=...&amp;end_date=...</code> - geography: <code>state=09&amp;county=001</code> - selecting fields: <code>fields=...</code> - sorting: <code>sort=...</code></p>
+</section>
+<section id="data-formats-json-and-tidying" class="level3">
+<h3 class="anchored" data-anchor-id="data-formats-json-and-tidying">Data formats: JSON and “tidying”</h3>
+<p>API responses are often <strong>nested JSON</strong>, meaning you may need to: - “flatten” nested objects into columns - unpack arrays (one-to-many relationships) - cast strings to dates/numbers - handle missing fields robustly</p>
+</section>
+<section id="provenance-what-to-record-for-methodsreproducibility" class="level3">
+<h3 class="anchored" data-anchor-id="provenance-what-to-record-for-methodsreproducibility">Provenance: what to record for methods/reproducibility</h3>
+<p>For every API pull, log: - endpoint URL - parameters (including filters and selected fields) - access date/time (UTC) - API version (if available) - software/package versions used to retrieve the data</p>
+</section>
+</section>
+<section id="how-biomedical-researchers-use-apis-examples" class="level2">
+<h2 class="anchored" data-anchor-id="how-biomedical-researchers-use-apis-examples">How biomedical researchers use APIs (examples)</h2>
+<ul>
+<li>Literature: retrieve PubMed metadata for reproducible searches</li>
+<li>Safety: monitor OpenFDA adverse event reports</li>
+<li>Trials: query ClinicalTrials.gov trial registries</li>
+<li>Surveillance: download public health indicators and dashboards</li>
+<li>Context: integrate Census covariates into analyses</li>
+</ul>
+</section>
+<section id="api-workflow-the-researcher-loop" class="level2">
+<h2 class="anchored" data-anchor-id="api-workflow-the-researcher-loop">API workflow (the “researcher loop”)</h2>
+<ol type="1">
+<li>Identify source + documentation<br>
+</li>
+<li>Draft a query (fields, filters, time range)<br>
+</li>
+<li>Request data (respect limits)<br>
+</li>
+<li>Validate + clean<br>
+</li>
+<li>Save raw + processed data<br>
+</li>
+<li>Record provenance (URL, params, date, version)</li>
+</ol>
+</section>
+<section id="demonstration-approach-today-language-agnostic" class="level2">
+<h2 class="anchored" data-anchor-id="demonstration-approach-today-language-agnostic">Demonstration approach today (language-agnostic)</h2>
+<p>We’ll show examples in <strong>R and Python</strong> patterns: - build URL with params - GET request - parse JSON - transform to a table - export to CSV - log provenance</p>
+</section>
+</section>
+<section id="part-2-publicly-available-apis-tour" class="level1">
+<h1>Part 2 — Publicly available APIs (tour)</h1>
+<section id="public-health-biomedical-apis-you-can-use" class="level2">
+<h2 class="anchored" data-anchor-id="public-health-biomedical-apis-you-can-use">Public health / biomedical APIs you can use</h2>
+<p>Examples to explore (depending on your research):</p>
+<ul>
+<li>PubMed / NCBI E-utilities (literature metadata)
+<ul>
+<li>https://www.ncbi.nlm.nih.gov/books/NBK25500/</li>
+</ul></li>
+<li>ClinicalTrials.gov (trial registry metadata)
+<ul>
+<li>https://clinicaltrials.gov/data-api/about-api</li>
+</ul></li>
+<li>OpenFDA (drugs, devices, adverse events)
+<ul>
+<li>https://open.fda.gov/apis/</li>
+</ul></li>
+<li>CDC open data (often via Socrata patterns)
+<ul>
+<li>https://wonder.cdc.gov/wonder/help/wonder-api.html</li>
+</ul></li>
+<li>Census API (ACS, decennial, geography)
+<ul>
+<li>https://www.census.gov/data/developers/data-sets.html</li>
+</ul></li>
+</ul>
+</section>
+<section id="apis-in-the-tools-you-already-use-redcap-r-packages-python-libraries" class="level2">
+<h2 class="anchored" data-anchor-id="apis-in-the-tools-you-already-use-redcap-r-packages-python-libraries">APIs in the tools you already use (REDCap | R packages | Python libraries)</h2>
+<section id="redcap-apis-download-and-upload" class="level3">
+<h3 class="anchored" data-anchor-id="redcap-apis-download-and-upload">REDCap APIs (download <em>and</em> upload)</h3>
+<p>Many institutions run <strong>REDCap</strong>, which includes an API for:</p>
+<ul>
+<li>exporting data (CSV/JSON)</li>
+<li>importing/updating records</li>
+<li>exporting metadata (data dictionaries)</li>
+<li>managing instruments/events (project-dependent)</li>
+</ul>
+<p>In practice, this enables reproducible pulls of study data <em>and</em> automated pipelines for cleaning/QA workflows.</p>
+</section>
+<section id="r-packages-that-provide-api-style-access" class="level3">
+<h3 class="anchored" data-anchor-id="r-packages-that-provide-api-style-access">R packages that provide API-style access</h3>
+<p>In R, many packages act as friendly clients to public data APIs or maintained data endpoints. Examples you may see in health research workflows include:</p>
+<ul>
+<li><code>cdcfluview</code> (influenza surveillance-related retrieval patterns)</li>
+<li><code>RNSSP</code> (syndromic surveillance access patterns, where available/authorized)</li>
+<li><code>NHANES</code> (NHANES data retrieval and convenience functions)</li>
+</ul>
+<p>When using package-based access, still apply the same reproducibility habits:</p>
+<ul>
+<li>record package version</li>
+<li>record query parameters</li>
+<li>record access date/time and dataset version</li>
+</ul>
+</section>
+</section>
+<section id="choosing-an-api-dataset-quick-criteria" class="level2">
+<h2 class="anchored" data-anchor-id="choosing-an-api-dataset-quick-criteria">Choosing an API dataset (quick criteria)</h2>
+<ul>
+<li>What is the <strong>unit of analysis</strong>? (person, county, hospital, trial)</li>
+<li>How often is it updated?</li>
+<li>What are the <strong>terms/limits</strong>?</li>
+<li>What fields are available? Are definitions clear?</li>
+<li>Are there stable identifiers? (FIPS, NPI, trial IDs, DOIs)</li>
+</ul>
+</section>
+<section id="api-demonstrations-one-per-source" class="level2">
+<h2 class="anchored" data-anchor-id="api-demonstrations-one-per-source">API demonstrations (one per source)</h2>
+<section id="nhanes-r-package-survey-data-access" class="level3">
+<h3 class="anchored" data-anchor-id="nhanes-r-package-survey-data-access">NHANES R package — survey data access</h3>
+<p><strong>Use cases</strong> - quick access to NHANES data - access the most recent survey cycles without manual file downloads - merge datasets across modules using participant ID (<code>SEQN</code>)</p>
+<p><strong>NHANES organizes data into separate modules (demographics, labs, examinations, questionnaires, etc.), which are linked by participant ID (<code>SEQN</code>).</strong></p>
+<section id="query-demographic-and-body-measurement-datasets" class="level4">
+<h4 class="anchored" data-anchor-id="query-demographic-and-body-measurement-datasets">Query demographic and body measurement datasets</h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># R demo skeleton (NHANES via nhanesA package)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># packages used: NHANES, nhanesA, tidyverse</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Example: get demographic data for 2021-2023 cycle (most recent) denoted by "L"</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>nhanes_demo <span class="ot">&lt;-</span> <span class="fu">nhanes</span>(<span class="st">'DEMO_L'</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co">#head(nhanes_demo)</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Example: get demographic data for 2021-2023 cycle (most recent) denoted by "L"</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>nhanes_bmx <span class="ot">&lt;-</span> <span class="fu">nhanes</span>(<span class="st">'BMX_L'</span>)</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="co">#head(nhanes_bmx)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The syntax changes across APIs, but the overall research workflow is remarkably similar.</p>
+</section>
+<section id="then-you-can-mergejoin-datasets-using-the-participant-id-seqn-to-create-an-analysis-ready-table." class="level4">
+<h4 class="anchored" data-anchor-id="then-you-can-mergejoin-datasets-using-the-participant-id-seqn-to-create-an-analysis-ready-table.">Then you can merge/join datasets using the participant ID (<code>SEQN</code>) to create an analysis-ready table.</h4>
+<p>It is important to note that using a data dictionary is crucial to understand the variables and their coding. For example, <code>RIAGENDR</code> is coded as 1 for male and 2 for female.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>nhanes_data <span class="ot">&lt;-</span> nhanes_demo <span class="sc">%&gt;%</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(nhanes_bmx, <span class="at">by =</span> <span class="st">"SEQN"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(SEQN, RIDAGEYR, RIAGENDR, BMXBMI)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(nhanes_data)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>    SEQN RIDAGEYR RIAGENDR BMXBMI
+1 130378       43     Male   27.0
+2 130379       66     Male   33.5
+3 130380       44   Female   29.7
+4 130381        5   Female   23.8
+5 130382        2     Male     NA
+6 130383        3   Female     NA</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="pubmed-ncbi-e-utilities-literature-metadata" class="level3">
+<h3 class="anchored" data-anchor-id="pubmed-ncbi-e-utilities-literature-metadata">PubMed (NCBI E-utilities) — literature metadata</h3>
+<p><strong>Use cases</strong></p>
+<ul>
+<li>reproducible literature searches</li>
+<li>retrieve PMIDs + basic citation metadata</li>
+<li>build screening datasets</li>
+</ul>
+<p><strong>NCBI requests should follow usage guidelines and include reasonable request pacing for large retrieval jobs.</strong></p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># R demo skeleton (E-utilities via httr2)</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co"># packages used: httr2, jsonlite, dplyr, tibble</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>base <span class="ot">&lt;-</span> <span class="st">"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>query <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">db =</span> <span class="st">"pubmed"</span>,</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">term =</span> <span class="st">"asthma[MeSH Terms] AND 2023[pdat]"</span>,</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">retmode =</span> <span class="st">"json"</span>,</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">retmax =</span> <span class="dv">20</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>resp <span class="ot">&lt;-</span> <span class="fu">request</span>(base) <span class="sc">|&gt;</span> <span class="fu">req_url_query</span>(<span class="sc">!!!</span>query) <span class="sc">|&gt;</span> <span class="fu">req_perform</span>()</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>txt <span class="ot">&lt;-</span> resp <span class="sc">|&gt;</span> <span class="fu">resp_body_string</span>()</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">fromJSON</span>(txt)</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>pmids <span class="ot">&lt;-</span> dat<span class="sc">$</span>esearchresult<span class="sc">$</span>idlist</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">pmid =</span> pmids)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 20 × 1
+   pmid    
+   &lt;chr&gt;   
+ 1 39359613
+ 2 39270110
+ 3 39156043
+ 4 38957678
+ 5 38955782
+ 6 38920201
+ 7 38920198
+ 8 38846737
+ 9 38846729
+10 38846724
+11 38812643
+12 38812629
+13 38747763
+14 38736058
+15 38716537
+16 38700299
+17 38652077
+18 38639301
+19 38549472
+20 38506857</code></pre>
+</div>
+</div>
+</section>
+<section id="clinicaltrials.gov-trial-registry-metadata" class="level3">
+<h3 class="anchored" data-anchor-id="clinicaltrials.gov-trial-registry-metadata">ClinicalTrials.gov — trial registry metadata</h3>
+<p><strong>Use cases</strong></p>
+<ul>
+<li>find trials by condition/intervention/location</li>
+<li>compare outcomes reporting patterns</li>
+<li>sponsor/phase landscape scans</li>
+</ul>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># R demo skeleton (ClinicalTrials.gov via httr)</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#  </span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Packages used: httr, jsonlite, dplyr, tibble</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- endpoint &amp; parameters ----</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>url <span class="ot">&lt;-</span> <span class="st">"https://clinicaltrials.gov/api/v2/studies"</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>params <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">query.term</span><span class="st">`</span> <span class="ot">=</span> <span class="st">"diabetes"</span>,</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">pageSize      =</span> <span class="dv">10</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- request ----</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>resp <span class="ot">&lt;-</span> <span class="fu">GET</span>(url, <span class="at">query =</span> params, <span class="fu">timeout</span>(<span class="dv">30</span>))</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="co"># error if HTTP status is not 200</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a><span class="fu">stop_for_status</span>(resp)</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- parse JSON ----</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>data_txt <span class="ot">&lt;-</span> <span class="fu">content</span>(resp, <span class="at">as =</span> <span class="st">"text"</span>, <span class="at">encoding =</span> <span class="st">"UTF-8"</span>)</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>data     <span class="ot">&lt;-</span> <span class="fu">fromJSON</span>(data_txt, <span class="at">flatten =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- extract the studies array ----</span></span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>studies <span class="ot">&lt;-</span> data<span class="sc">$</span>studies            <span class="co"># flatten nested JSON into a data frame</span></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- inspect / use ----</span></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>studies_tbl <span class="ot">&lt;-</span> <span class="fu">as_tibble</span>(studies)</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a><span class="co">#print(studies_tbl, n = 10, width = Inf)</span></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a><span class="co">#str(studies_tbl)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="openfda-adverse-events-labeling" class="level3">
+<h3 class="anchored" data-anchor-id="openfda-adverse-events-labeling">OpenFDA — adverse events / labeling</h3>
+<p><strong>Use cases</strong></p>
+<ul>
+<li>pharmacovigilance exploration</li>
+<li>counts over time, stratified by drug/product fields</li>
+<li>teaching filtering + pagination</li>
+</ul>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># R demo skeleton (OpenFDA via httr)</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co"># packages used: httr, jsonlite, dplyr, tibble</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- endpoint &amp; parameters ----</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>base   <span class="ot">&lt;-</span> <span class="st">"https://api.fda.gov/drug/event.json"</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>params <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">search =</span> <span class="st">'patient.drug.medicinalproduct:"metformin"'</span>,</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">limit  =</span> <span class="dv">5</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- request ----</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>resp <span class="ot">&lt;-</span> <span class="fu">GET</span>(base, <span class="at">query =</span> params, <span class="fu">timeout</span>(<span class="dv">30</span>))</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="fu">stop_for_status</span>(resp)                       <span class="co"># error if HTTP status ≥ 400</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- parse JSON ----</span></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>txt <span class="ot">&lt;-</span> <span class="fu">content</span>(resp, <span class="at">as =</span> <span class="st">"text"</span>, <span class="at">encoding =</span> <span class="st">"UTF-8"</span>)</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>j   <span class="ot">&lt;-</span> <span class="fu">fromJSON</span>(txt, <span class="at">flatten =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- extract the results array ----</span></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>fda_df <span class="ot">&lt;-</span> j<span class="sc">$</span>results <span class="sc">%&gt;%</span>            <span class="co"># NULL if no hits</span></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>        <span class="fu">as_tibble</span>()</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a><span class="co">#print(fda_df, n = 5, width = Inf)  # show the 5 rows we requested</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="cdc-open-data-socrata-style" class="level3">
+<h3 class="anchored" data-anchor-id="cdc-open-data-socrata-style">CDC open data (Socrata-style)</h3>
+<p>Many government open-data portals use Socrata APIs, which support SQL-like query parameters such as <code>$select</code>, <code>$where</code>, and <code>$limit</code>.</p>
+<p>https://dev.socrata.com/docs/endpoints</p>
+<p><strong>Use cases</strong></p>
+<ul>
+<li>quick access to many public datasets</li>
+<li>teach “select/where/limit” query patterns</li>
+</ul>
+<p><strong>Run this chunk to find the endpoint for a dataset of interest (e.g., COVID-19 hospitalization surveillance)</strong></p>
+<p>Search other datasets by changing the <code>q</code> parameter and/or domain filter. Note that some CDC datasets are on data.cdc.gov, but others may be on different domains (e.g., wonder.cdc.gov). You can also explore the Socrata API documentation for more complex queries and dataset discovery.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># R demo skeleton: Socrata dataset discovery (you will replace the query with your own topic of interest)</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co"># packages used: httr2, jsonlite, dplyr, tibble</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>catalog <span class="ot">&lt;-</span> <span class="fu">request</span>(<span class="st">"https://api.us.socrata.com/api/catalog/v1"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">req_url_query</span>(<span class="at">q =</span> <span class="st">"COVID-19 hospitalization"</span>, <span class="at">domains =</span> <span class="st">"data.cdc.gov"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">req_perform</span>() <span class="sc">|&gt;</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">resp_body_json</span>()</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>catalog<span class="sc">$</span>results[[<span class="dv">1</span>]]<span class="sc">$</span>resource<span class="sc">$</span>id  </span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "akn2-qxic"</code></pre>
+</div>
+</div>
+<p><strong>Run this chunk with the dataset-specific endpoint to get data (replace the XXXX-XXXX with the one you found in the previous step)</strong></p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># R demo skeleton: Socrata-style endpoint (you will replace with a specific dataset)</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="co"># packages used: httr2, jsonlite, dplyr, tibble</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Many Socrata datasets support SODA queries via $select, $where, $limit.</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Replace with a concrete dataset endpoint you choose for class:</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Example form: https://data.cdc.gov/resource/XXXX-XXXX.json</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>endpoint <span class="ot">&lt;-</span> <span class="st">"https://data.cdc.gov/resource/akn2-qxic.json"</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>resp <span class="ot">&lt;-</span> <span class="fu">request</span>(endpoint) <span class="sc">|&gt;</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">req_url_query</span>(<span class="st">`</span><span class="at">$limit</span><span class="st">`</span> <span class="ot">=</span> <span class="dv">10</span>) <span class="sc">|&gt;</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">req_perform</span>()</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>resp_dat <span class="ot">&lt;-</span> <span class="fu">fromJSON</span>(<span class="fu">resp_body_string</span>(resp), <span class="at">flatten =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a><span class="fu">as_tibble</span>(resp_dat)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 22
+   state    county   fips_code county_population health_sa_name health_sa_number
+   &lt;chr&gt;    &lt;chr&gt;    &lt;chr&gt;     &lt;chr&gt;             &lt;chr&gt;          &lt;chr&gt;           
+ 1 Kentucky Pendlet… 21191     14590             Kenton (Covin… 2               
+ 2 Kentucky Kenton … 21117     166998            Kenton (Covin… 2               
+ 3 Kentucky Grant C… 21081     25069             Kenton (Covin… 2               
+ 4 Kentucky Gallati… 21077     8869              Kenton (Covin… 2               
+ 5 Kentucky Campbel… 21037     93584             Kenton (Covin… 2               
+ 6 Kentucky Boone C… 21015     133581            Kenton (Covin… 2               
+ 7 Kentucky Pendlet… 21191     14590             Kenton (Covin… 2               
+ 8 Kentucky Kenton … 21117     166998            Kenton (Covin… 2               
+ 9 Kentucky Grant C… 21081     25069             Kenton (Covin… 2               
+10 Kentucky Gallati… 21077     8869              Kenton (Covin… 2               
+# ℹ 16 more variables: health_sa_population &lt;chr&gt;, report_date &lt;chr&gt;,
+#   week_end_date &lt;chr&gt;, mmwr_report_week &lt;chr&gt;, mmwr_report_year &lt;chr&gt;,
+#   total_adm_all_covid_confirmed &lt;chr&gt;,
+#   total_adm_all_covid_confirmed_per_100k &lt;chr&gt;,
+#   total_adm_all_covid_confirmed_level &lt;chr&gt;,
+#   admissions_covid_confirmed &lt;chr&gt;, admissions_covid_confirmed_level &lt;chr&gt;,
+#   avg_percent_inpatient_beds &lt;chr&gt;, avg_percent_inpatient_beds_level &lt;chr&gt;, …</code></pre>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="part-3-census-api-token-joins" class="level1">
+<h1>Part 3 — Census API (token + joins)</h1>
+<section id="why-the-censusacs-matters-in-health-research" class="level2">
+<h2 class="anchored" data-anchor-id="why-the-censusacs-matters-in-health-research">Why the Census/ACS matters in health research</h2>
+<p>Adds <strong>population context</strong> for:</p>
+<ul>
+<li>Denominators to turn counts into rates</li>
+<li>Social determinants proxies (income, education, housing, internet)</li>
+<li>Fine-grained geographies (tract, ZIP, county, ZCTA, PUMA, etc.)</li>
+<li>Annual or 5-year series for trend analysis</li>
+</ul>
+<p>Common outputs:</p>
+<ul>
+<li>tract/county/state estimates</li>
+<li>ACS variables (multi-year)</li>
+</ul>
+</section>
+<section id="getting-a-census-api-token" class="level2">
+<h2 class="anchored" data-anchor-id="getting-a-census-api-token">Getting a Census API token</h2>
+<ol type="1">
+<li>Request one free key: https://api.census.gov/data/key_signup.html</li>
+<li>Store it safely (e.g.&nbsp;in ~/.Renviron as CENSUS_API_KEY=ABC…).</li>
+<li>Load it in R:</li>
+</ol>
+</section>
+<section id="store-your-census-key-r-example" class="level2">
+<h2 class="anchored" data-anchor-id="store-your-census-key-r-example">Store your Census key (R example)</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set your key in .Renviron (permanenet, editsable, one-time setup)</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Should look like this: CENSUS_API_KEY=YOUR_KEY_HERE</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co">#file.edit("~/.Renviron")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="load-your-census-api-key-from-environment-variables-r-example" class="level2">
+<h2 class="anchored" data-anchor-id="load-your-census-api-key-from-environment-variables-r-example">Load your Census API key from environment variables (R example)</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># You only need to run this once per R session to load the key into your environment. It will be available for all tidycensus functions after this.</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co"># packages used: tidycensus</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="co">#Sys.getenv("CENSUS_API_KEY")</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="fu">census_api_key</span>(<span class="fu">Sys.getenv</span>(<span class="st">"CENSUS_API_KEY"</span>), <span class="at">install =</span> <span class="cn">TRUE</span>, <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "0d957575e1d2da7f12f8afad9808c2c0dcb93055"</code></pre>
+</div>
+</div>
+</section>
+<section id="test-your-key-and-make-a-simple-request-r-example" class="level2">
+<h2 class="anchored" data-anchor-id="test-your-key-and-make-a-simple-request-r-example">Test your key and make a simple request (R example)</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># This is a simple test to see if your key is working and to get a basic population estimate for all states in 2023. You should see a table with state names, population estimates, and margins of error.</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="co"># packages used: tidycensus</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="fu">get_acs</span>(<span class="at">geography =</span> <span class="st">"state"</span>, <span class="at">variables =</span> <span class="st">"B01001_001"</span>, <span class="at">year =</span> <span class="dv">2023</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 52 × 5
+   GEOID NAME                 variable   estimate   moe
+   &lt;chr&gt; &lt;chr&gt;                &lt;chr&gt;         &lt;dbl&gt; &lt;dbl&gt;
+ 1 01    Alabama              B01001_001  5054253    NA
+ 2 02    Alaska               B01001_001   733971    NA
+ 3 04    Arizona              B01001_001  7268175    NA
+ 4 05    Arkansas             B01001_001  3032651    NA
+ 5 06    California           B01001_001 39242785    NA
+ 6 08    Colorado             B01001_001  5810774    NA
+ 7 09    Connecticut          B01001_001  3598348    NA
+ 8 10    Delaware             B01001_001  1005872    NA
+ 9 11    District of Columbia B01001_001   672079    NA
+10 12    Florida              B01001_001 21928881    NA
+# ℹ 42 more rows</code></pre>
+</div>
+</div>
+</section>
+<section id="census-api-geographies-joins" class="level2">
+<h2 class="anchored" data-anchor-id="census-api-geographies-joins">Census API: geographies + joins</h2>
+<section id="guide-to-us-census-bureau-data-tables-acs" class="level3">
+<h3 class="anchored" data-anchor-id="guide-to-us-census-bureau-data-tables-acs">Guide to US Census Bureau Data Tables (ACS)</h3>
+<p>The American Community Survey (ACS) tracks over 1,400 demographic and economic metrics. Instead of searching blindly, you can decipher any Census table code instantly using its alphanumeric structure.</p>
+<section id="anatomy-of-a-census-variable-code" class="level4">
+<h4 class="anchored" data-anchor-id="anatomy-of-a-census-variable-code">1. Anatomy of a Census Variable Code</h4>
+<p>Take the code <strong><code>B01001_001</code></strong>: * <strong><code>B</code></strong> (or <strong><code>C</code></strong>): The Table Type (<em>Base</em> or <em>Collapsed</em>). * <strong><code>01</code></strong>: The Broad Subject Code (<em>Age &amp; Sex</em>). * <strong><code>001</code></strong> (before the underscore): The unique table sequence sequence number. * <strong><code>_001</code></strong> (after the underscore): The specific <strong>line number</strong> (row) inside that table. * <em>Tip: Line <code>_001</code> is almost always the “Total” count for that whole table.</em></p>
+</section>
+<section id="cheat-sheet-table-subject-prefixes" class="level4">
+<h4 class="anchored" data-anchor-id="cheat-sheet-table-subject-prefixes">2. Cheat Sheet: Table Subject Prefixes</h4>
+<p>The first two digits after the leading letter tell you exactly what topic the table covers:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Prefix</th>
+<th style="text-align: left;">Subject Category</th>
+<th style="text-align: left;">Example Metrics Included</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>01</code> to <code>07</code></strong></td>
+<td style="text-align: left;"><strong>Core Demographics</strong></td>
+<td style="text-align: left;">Age, Sex, Race, Ancestry, and Place of Birth</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>08</code></strong></td>
+<td style="text-align: left;"><strong>Commuting &amp; Transit</strong></td>
+<td style="text-align: left;">Remote work, public transit use, and travel times to work</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>11</code> to <code>13</code></strong></td>
+<td style="text-align: left;"><strong>Households &amp; Family</strong></td>
+<td style="text-align: left;">Marital status, family size, and fertility rates</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>15</code> to <code>16</code></strong></td>
+<td style="text-align: left;"><strong>Education &amp; Language</strong></td>
+<td style="text-align: left;">High school/college graduation rates, languages spoken at home</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>17</code> to <code>23</code></strong></td>
+<td style="text-align: left;"><strong>Economics &amp; Finance</strong></td>
+<td style="text-align: left;">Median Household Income, poverty status, and employment data</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>24</code></strong></td>
+<td style="text-align: left;"><strong>Occupations</strong></td>
+<td style="text-align: left;">Employment fields (Tech, Manufacturing, Service industry splits)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>25</code></strong></td>
+<td style="text-align: left;"><strong>Housing &amp; Living</strong></td>
+<td style="text-align: left;">Rent vs.&nbsp;Own, home values, monthly utility costs, vehicle counts</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Helpful website to search tables</strong> https://censusreporter.org</p>
+</section>
+<section id="high-engagement-tables-for-student-projects" class="level4">
+<h4 class="anchored" data-anchor-id="high-engagement-tables-for-student-projects">3. High-Engagement Tables for Student Projects</h4>
+<p>When querying datasets using <code>get_acs()</code>, these tables are the most popular for economic, sociological, and geographical data analysis:</p>
+<ul>
+<li><strong><code>B19013</code></strong> — Median Household Income</li>
+<li><strong><code>B17001</code></strong> — Poverty Status by Sex and Age</li>
+<li><strong><code>B15003</code></strong> — Educational Attainment (Population 25 years and older)</li>
+<li><strong><code>B25077</code></strong> — Median Value of Owner-Occupied Housing Units</li>
+<li><strong><code>B28002</code></strong> — Presence and Type of Household Internet Access (The “Digital Divide”)</li>
+<li><strong><code>B25044</code></strong> — Vehicles Available per Household</li>
+</ul>
+</section>
+<section id="b-tables-vs.-c-tables-base-vs.-collapsed" class="level4">
+<h4 class="anchored" data-anchor-id="b-tables-vs.-c-tables-base-vs.-collapsed">4. <code>B</code> Tables vs.&nbsp;<code>C</code> Tables (Base vs.&nbsp;Collapsed)</h4>
+<ul>
+<li><strong><code>B</code> (Base Tables):</strong> Provide micro-detailed row breakdowns (e.g., tracking poverty across 20+ micro-age brackets).</li>
+<li><strong><code>C</code> (Collapsed Tables):</strong> Take the exact same data but compress it into fewer, broader rows (e.g., grouping that same poverty data into just 3 wide age buckets).
+<ul>
+<li><em>If a <code>B</code> table dataset feels overwhelming, change the first letter to a <code>C</code> for a cleaner overview!</em></li>
+</ul></li>
+</ul>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># This example shows how to get population estimates by county in Connecticut, calculate the percentage of the state population for each county, and then build a nice table to display the results. You can adapt this pattern to other geographies, variables, and states as needed.</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co"># packages used: tidycensus, dplyr, flextable, scales</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Load your Census API key (if you haven’t already)</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="fu">census_api_key</span>(<span class="fu">Sys.getenv</span>(<span class="st">"CENSUS_API_KEY"</span>))</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="co"># ── 1. Population by County (Connecticut) ────────────────────────────────────</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>county_pop <span class="ot">&lt;-</span> <span class="fu">get_acs</span>(</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">geography =</span> <span class="st">"county"</span>,</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">variables =</span> <span class="st">"B01001_001"</span>,  <span class="co"># we use Variables to calucalte the percentage of the state population for each county; this is the total population variable in the ACS</span></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">state =</span> <span class="st">"CT"</span>,</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">year =</span> <span class="dv">2023</span>,</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">survey =</span> <span class="st">"acs5"</span></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">NAME =</span> <span class="fu">gsub</span>(<span class="st">" County, Connecticut"</span>, <span class="st">""</span>, NAME),</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">pct_of_state =</span> (estimate <span class="sc">/</span> <span class="fu">sum</span>(estimate)) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>county_pop</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 9 × 6
+  GEOID NAME                                variable estimate   moe pct_of_state
+  &lt;chr&gt; &lt;chr&gt;                               &lt;chr&gt;       &lt;dbl&gt; &lt;dbl&gt;        &lt;dbl&gt;
+1 09110 Capitol Planning Region, Connectic… B01001_…   969029    NA        26.9 
+2 09120 Greater Bridgeport Planning Region… B01001_…   326296    NA         9.07
+3 09130 Lower Connecticut River Valley Pla… B01001_…   174983    NA         4.86
+4 09140 Naugatuck Valley Planning Region, … B01001_…   452303    NA        12.6 
+5 09150 Northeastern Connecticut Planning … B01001_…    95829    NA         2.66
+6 09160 Northwest Hills Planning Region, C… B01001_…   112848    NA         3.14
+7 09170 South Central Connecticut Planning… B01001_…   566803    NA        15.8 
+8 09180 Southeastern Connecticut Planning … B01001_…   279025    NA         7.75
+9 09190 Western Connecticut Planning Regio… B01001_…   621232    NA        17.3 </code></pre>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="now-we-can-build-a-nice-table-to-display-the-population-estimates-by-county-along-with-the-margin-of-error-and-the-percentage-of-the-state-population." class="level2">
+<h2 class="anchored" data-anchor-id="now-we-can-build-a-nice-table-to-display-the-population-estimates-by-county-along-with-the-margin-of-error-and-the-percentage-of-the-state-population.">Now we can build a nice table to display the population estimates by county, along with the margin of error and the percentage of the state population.</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>build_county_pop_table <span class="ot">&lt;-</span> <span class="cf">function</span>() {</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  county_pop <span class="sc">%&gt;%</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">arrange</span>(<span class="fu">desc</span>(estimate)) <span class="sc">%&gt;%</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>      <span class="at">County =</span> NAME,</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>      <span class="at">Population =</span> estimate,</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>      <span class="co">#MOE = moe,</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>      <span class="st">`</span><span class="at">% of State</span><span class="st">`</span> <span class="ot">=</span> pct_of_state</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>      <span class="at">Population =</span> <span class="fu">comma</span>(Population),</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>      <span class="co">#MOE = comma(MOE),</span></span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>      <span class="st">`</span><span class="at">% of State</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">paste0</span>(<span class="fu">round</span>(<span class="st">`</span><span class="at">% of State</span><span class="st">`</span>, <span class="dv">1</span>), <span class="st">"%"</span>)</span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">flextable</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">set_header_labels</span>(</span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>      <span class="at">County =</span> <span class="st">"County"</span>,</span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a>      <span class="at">Population =</span> <span class="st">"Population"</span>,</span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a>      <span class="co">#MOE = "Margin of Error",</span></span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a>      <span class="st">`</span><span class="at">% of State</span><span class="st">`</span> <span class="ot">=</span> <span class="st">"% of State"</span></span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_vanilla</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a>    <span class="fu">bold</span>(<span class="at">part =</span> <span class="st">"header"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a>    <span class="fu">bg</span>(<span class="at">part =</span> <span class="st">"header"</span>, <span class="at">bg =</span> <span class="st">"white"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a>    <span class="fu">color</span>(<span class="at">part =</span> <span class="st">"header"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a>    <span class="fu">bg</span>(<span class="at">i =</span> <span class="fu">seq</span>(<span class="dv">2</span>, <span class="fu">nrow</span>(county_pop), <span class="dv">2</span>), <span class="at">bg =</span> <span class="st">"#F2F2F2"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">align</span>(<span class="at">j =</span> <span class="fu">c</span>(<span class="st">"Population"</span>, <span class="st">"% of State"</span>), <span class="at">align =</span> <span class="st">"right"</span>, <span class="at">part =</span> <span class="st">"all"</span>) <span class="sc">%&gt;%</span> <span class="co">#removed "MOE" since its all blanks</span></span>
+<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a>    <span class="fu">set_table_properties</span>(<span class="at">width =</span> <span class="dv">1</span>, <span class="at">layout =</span> <span class="st">"autofit"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb23-29"><a href="#cb23-29" aria-hidden="true" tabindex="-1"></a>    <span class="fu">add_footer_lines</span>(<span class="st">"Source: U.S. Census Bureau, ACS 5-Year Estimates 2023. Table B01001."</span>)</span>
+<span id="cb23-30"><a href="#cb23-30" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-32"><a href="#cb23-32" aria-hidden="true" tabindex="-1"></a><span class="fu">build_county_pop_table</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="tabwid"><style>.cl-2b75979c{table-layout:auto;width:100%;}.cl-2b7118c0{font-family:'Helvetica';font-size:11pt;font-weight:bold;font-style:normal;text-decoration:none;color:rgba(0, 0, 0, 1.00);background-color:transparent;}.cl-2b7118de{font-family:'Helvetica';font-size:11pt;font-weight:normal;font-style:normal;text-decoration:none;color:rgba(0, 0, 0, 1.00);background-color:transparent;}.cl-2b72d2e6{margin:0;text-align:left;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);padding-bottom:5pt;padding-top:5pt;padding-left:5pt;padding-right:5pt;line-height: 1;background-color:transparent;}.cl-2b72d2f0{margin:0;text-align:right;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);padding-bottom:5pt;padding-top:5pt;padding-left:5pt;padding-right:5pt;line-height: 1;background-color:transparent;}.cl-2b72e970{background-color:rgba(255, 255, 255, 1.00);vertical-align: middle;border-bottom: 1.5pt solid rgba(102, 102, 102, 1.00);border-top: 1.5pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b72e97a{background-color:rgba(255, 255, 255, 1.00);vertical-align: middle;border-bottom: 1.5pt solid rgba(102, 102, 102, 1.00);border-top: 1.5pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b72e97b{background-color:transparent;vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b72e984{background-color:transparent;vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b72e985{background-color:rgba(242, 242, 242, 1.00);vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b72e986{background-color:rgba(242, 242, 242, 1.00);vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b72e98e{background-color:transparent;vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b72e98f{background-color:transparent;vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b72e990{background-color:transparent;vertical-align: middle;border-bottom: 1.5pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b72e998{background-color:transparent;vertical-align: middle;border-bottom: 1.5pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b72e999{background-color:transparent;vertical-align: middle;border-bottom: 0 solid rgba(255, 255, 255, 0.00);border-top: 0 solid rgba(255, 255, 255, 0.00);border-left: 0 solid rgba(255, 255, 255, 0.00);border-right: 0 solid rgba(255, 255, 255, 0.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}</style><table data-quarto-disable-processing="true" class="cl-2b75979c"><thead><tr style="overflow-wrap:break-word;"><th class="cl-2b72e970"><p class="cl-2b72d2e6"><span class="cl-2b7118c0">County</span></p></th><th class="cl-2b72e97a"><p class="cl-2b72d2f0"><span class="cl-2b7118c0">Population</span></p></th><th class="cl-2b72e97a"><p class="cl-2b72d2f0"><span class="cl-2b7118c0">% of State</span></p></th></tr></thead><tbody><tr style="overflow-wrap:break-word;"><td class="cl-2b72e97b"><p class="cl-2b72d2e6"><span class="cl-2b7118de">Capitol Planning Region, Connecticut</span></p></td><td class="cl-2b72e984"><p class="cl-2b72d2f0"><span class="cl-2b7118de">969,029</span></p></td><td class="cl-2b72e984"><p class="cl-2b72d2f0"><span class="cl-2b7118de">26.9%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b72e985"><p class="cl-2b72d2e6"><span class="cl-2b7118de">Western Connecticut Planning Region, Connecticut</span></p></td><td class="cl-2b72e986"><p class="cl-2b72d2f0"><span class="cl-2b7118de">621,232</span></p></td><td class="cl-2b72e986"><p class="cl-2b72d2f0"><span class="cl-2b7118de">17.3%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b72e98e"><p class="cl-2b72d2e6"><span class="cl-2b7118de">South Central Connecticut Planning Region, Connecticut</span></p></td><td class="cl-2b72e98f"><p class="cl-2b72d2f0"><span class="cl-2b7118de">566,803</span></p></td><td class="cl-2b72e98f"><p class="cl-2b72d2f0"><span class="cl-2b7118de">15.8%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b72e985"><p class="cl-2b72d2e6"><span class="cl-2b7118de">Naugatuck Valley Planning Region, Connecticut</span></p></td><td class="cl-2b72e986"><p class="cl-2b72d2f0"><span class="cl-2b7118de">452,303</span></p></td><td class="cl-2b72e986"><p class="cl-2b72d2f0"><span class="cl-2b7118de">12.6%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b72e98e"><p class="cl-2b72d2e6"><span class="cl-2b7118de">Greater Bridgeport Planning Region, Connecticut</span></p></td><td class="cl-2b72e98f"><p class="cl-2b72d2f0"><span class="cl-2b7118de">326,296</span></p></td><td class="cl-2b72e98f"><p class="cl-2b72d2f0"><span class="cl-2b7118de">9.1%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b72e985"><p class="cl-2b72d2e6"><span class="cl-2b7118de">Southeastern Connecticut Planning Region, Connecticut</span></p></td><td class="cl-2b72e986"><p class="cl-2b72d2f0"><span class="cl-2b7118de">279,025</span></p></td><td class="cl-2b72e986"><p class="cl-2b72d2f0"><span class="cl-2b7118de">7.8%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b72e98e"><p class="cl-2b72d2e6"><span class="cl-2b7118de">Lower Connecticut River Valley Planning Region, Connecticut</span></p></td><td class="cl-2b72e98f"><p class="cl-2b72d2f0"><span class="cl-2b7118de">174,983</span></p></td><td class="cl-2b72e98f"><p class="cl-2b72d2f0"><span class="cl-2b7118de">4.9%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b72e985"><p class="cl-2b72d2e6"><span class="cl-2b7118de">Northwest Hills Planning Region, Connecticut</span></p></td><td class="cl-2b72e986"><p class="cl-2b72d2f0"><span class="cl-2b7118de">112,848</span></p></td><td class="cl-2b72e986"><p class="cl-2b72d2f0"><span class="cl-2b7118de">3.1%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b72e990"><p class="cl-2b72d2e6"><span class="cl-2b7118de">Northeastern Connecticut Planning Region, Connecticut</span></p></td><td class="cl-2b72e998"><p class="cl-2b72d2f0"><span class="cl-2b7118de">95,829</span></p></td><td class="cl-2b72e998"><p class="cl-2b72d2f0"><span class="cl-2b7118de">2.7%</span></p></td></tr></tbody><tfoot><tr style="overflow-wrap:break-word;"><td colspan="3" class="cl-2b72e999"><p class="cl-2b72d2e6"><span class="cl-2b7118de">Source: U.S. Census Bureau, ACS 5-Year Estimates 2023. Table B01001.</span></p></td></tr></tfoot></table></div>
+</div>
+</div>
+</section>
+<section id="now-you-can-call-the-build_county_pop_table-function-to-display-the-formatted-table-of-population-estimates-by-county-in-connecticut." class="level2">
+<h2 class="anchored" data-anchor-id="now-you-can-call-the-build_county_pop_table-function-to-display-the-formatted-table-of-population-estimates-by-county-in-connecticut.">Now you can call the <code>build_county_pop_table()</code> function to display the formatted table of population estimates by county in Connecticut.</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Call this to display the table:</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="fu">build_county_pop_table</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="tabwid"><style>.cl-2b809322{table-layout:auto;width:100%;}.cl-2b7db6c0{font-family:'Helvetica';font-size:11pt;font-weight:bold;font-style:normal;text-decoration:none;color:rgba(0, 0, 0, 1.00);background-color:transparent;}.cl-2b7db6ca{font-family:'Helvetica';font-size:11pt;font-weight:normal;font-style:normal;text-decoration:none;color:rgba(0, 0, 0, 1.00);background-color:transparent;}.cl-2b7ed21c{margin:0;text-align:left;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);padding-bottom:5pt;padding-top:5pt;padding-left:5pt;padding-right:5pt;line-height: 1;background-color:transparent;}.cl-2b7ed226{margin:0;text-align:right;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);padding-bottom:5pt;padding-top:5pt;padding-left:5pt;padding-right:5pt;line-height: 1;background-color:transparent;}.cl-2b7ee8ce{background-color:rgba(255, 255, 255, 1.00);vertical-align: middle;border-bottom: 1.5pt solid rgba(102, 102, 102, 1.00);border-top: 1.5pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b7ee8d8{background-color:rgba(255, 255, 255, 1.00);vertical-align: middle;border-bottom: 1.5pt solid rgba(102, 102, 102, 1.00);border-top: 1.5pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b7ee8d9{background-color:transparent;vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b7ee8da{background-color:transparent;vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b7ee8e2{background-color:rgba(242, 242, 242, 1.00);vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b7ee8e3{background-color:rgba(242, 242, 242, 1.00);vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b7ee8e4{background-color:transparent;vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b7ee8ec{background-color:transparent;vertical-align: middle;border-bottom: 0.75pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b7ee8ed{background-color:transparent;vertical-align: middle;border-bottom: 1.5pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b7ee8ee{background-color:transparent;vertical-align: middle;border-bottom: 1.5pt solid rgba(102, 102, 102, 1.00);border-top: 0.75pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-2b7ee8f6{background-color:transparent;vertical-align: middle;border-bottom: 0 solid rgba(255, 255, 255, 0.00);border-top: 0 solid rgba(255, 255, 255, 0.00);border-left: 0 solid rgba(255, 255, 255, 0.00);border-right: 0 solid rgba(255, 255, 255, 0.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}</style><table data-quarto-disable-processing="true" class="cl-2b809322"><thead><tr style="overflow-wrap:break-word;"><th class="cl-2b7ee8ce"><p class="cl-2b7ed21c"><span class="cl-2b7db6c0">County</span></p></th><th class="cl-2b7ee8d8"><p class="cl-2b7ed226"><span class="cl-2b7db6c0">Population</span></p></th><th class="cl-2b7ee8d8"><p class="cl-2b7ed226"><span class="cl-2b7db6c0">% of State</span></p></th></tr></thead><tbody><tr style="overflow-wrap:break-word;"><td class="cl-2b7ee8d9"><p class="cl-2b7ed21c"><span class="cl-2b7db6ca">Capitol Planning Region, Connecticut</span></p></td><td class="cl-2b7ee8da"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">969,029</span></p></td><td class="cl-2b7ee8da"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">26.9%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b7ee8e2"><p class="cl-2b7ed21c"><span class="cl-2b7db6ca">Western Connecticut Planning Region, Connecticut</span></p></td><td class="cl-2b7ee8e3"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">621,232</span></p></td><td class="cl-2b7ee8e3"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">17.3%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b7ee8e4"><p class="cl-2b7ed21c"><span class="cl-2b7db6ca">South Central Connecticut Planning Region, Connecticut</span></p></td><td class="cl-2b7ee8ec"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">566,803</span></p></td><td class="cl-2b7ee8ec"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">15.8%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b7ee8e2"><p class="cl-2b7ed21c"><span class="cl-2b7db6ca">Naugatuck Valley Planning Region, Connecticut</span></p></td><td class="cl-2b7ee8e3"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">452,303</span></p></td><td class="cl-2b7ee8e3"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">12.6%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b7ee8e4"><p class="cl-2b7ed21c"><span class="cl-2b7db6ca">Greater Bridgeport Planning Region, Connecticut</span></p></td><td class="cl-2b7ee8ec"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">326,296</span></p></td><td class="cl-2b7ee8ec"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">9.1%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b7ee8e2"><p class="cl-2b7ed21c"><span class="cl-2b7db6ca">Southeastern Connecticut Planning Region, Connecticut</span></p></td><td class="cl-2b7ee8e3"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">279,025</span></p></td><td class="cl-2b7ee8e3"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">7.8%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b7ee8e4"><p class="cl-2b7ed21c"><span class="cl-2b7db6ca">Lower Connecticut River Valley Planning Region, Connecticut</span></p></td><td class="cl-2b7ee8ec"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">174,983</span></p></td><td class="cl-2b7ee8ec"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">4.9%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b7ee8e2"><p class="cl-2b7ed21c"><span class="cl-2b7db6ca">Northwest Hills Planning Region, Connecticut</span></p></td><td class="cl-2b7ee8e3"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">112,848</span></p></td><td class="cl-2b7ee8e3"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">3.1%</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-2b7ee8ed"><p class="cl-2b7ed21c"><span class="cl-2b7db6ca">Northeastern Connecticut Planning Region, Connecticut</span></p></td><td class="cl-2b7ee8ee"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">95,829</span></p></td><td class="cl-2b7ee8ee"><p class="cl-2b7ed226"><span class="cl-2b7db6ca">2.7%</span></p></td></tr></tbody><tfoot><tr style="overflow-wrap:break-word;"><td colspan="3" class="cl-2b7ee8f6"><p class="cl-2b7ed21c"><span class="cl-2b7db6ca">Source: U.S. Census Bureau, ACS 5-Year Estimates 2023. Table B01001.</span></p></td></tr></tfoot></table></div>
+</div>
+</div>
+</section>
+</section>
+<section id="wrapping-it-all-up-from-curiosity-to-pipeline" class="level1">
+<h1>Wrapping it all up – From curiosity to pipeline</h1>
+<section id="common-skeleton" class="level2">
+<h2 class="anchored" data-anchor-id="common-skeleton">1. Common skeleton</h2>
+<ul>
+<li>Identify endpoint + docs</li>
+<li>Auth if needed</li>
+<li>Build query (params/body)</li>
+<li>Send request (GET/POST)</li>
+<li>Handle errors / rate limits</li>
+<li>Parse JSON/XML → table</li>
+<li>Clean, validate, record provenance</li>
+</ul>
+</section>
+<section id="reproducibility-checklist" class="level2">
+<h2 class="anchored" data-anchor-id="reproducibility-checklist">2. Reproducibility checklist</h2>
+<p>☐ Save raw response (or hash)</p>
+<p>☐ Log URL/params + timestamp + API version</p>
+<p>☐ Pin package versions / environment info</p>
+<p>☐ Respect robots.txt / rate limits</p>
+<p>☐ Secure tokens (env vars or vault)</p>
+</section>
+<section id="where-to-go-next" class="level2">
+<h2 class="anchored" data-anchor-id="where-to-go-next">3. Where to go next</h2>
+<ul>
+<li>Explore additional endpoints: FDA Device, CMS Open Payments, EPA, WHO, UN, etc.</li>
+<li>Learn asynchronous / parallel request patterns for large pulls (furrr, async in Python).</li>
+<li>Pair APIs with geospatial analysis (sf, tigris, leaflet).</li>
+<li>Automate updates with cron / GitHub Actions.</li>
+</ul>
+</section>
+<section id="key-takeaway" class="level2">
+<h2 class="anchored" data-anchor-id="key-takeaway">4. Key takeaway</h2>
+<ul>
+<li><p>Different APIs, one mental model: endpoints + params + auth + pagination + parse + provenance. Master the pattern once and you can unlock a universe of public-interest data for transparent, up-to-date, and scalable health research.</p></li>
+<li><p>Feel free to drop these enhanced sections into your materials and tweak the wording or examples to match your audience and time constraints.</p></li>
+</ul>
+</section>
+</section>
+<section id="web-scraping" class="level1">
+<h1>Web scraping</h1>
+<section id="what-is-web-scraping" class="level2">
+<h2 class="anchored" data-anchor-id="what-is-web-scraping">What is web scraping?</h2>
+<p>Web scraping is the process of programmatically extracting data from websites. It’s often used when: - No API is available - The API is too limited or slow for your needs - You want to capture data that’s only presented in HTML format</p>
+</section>
+<section id="today-we-will-be-scrapping-a-wikipedia-page-to-extract-gloabal-covid-cases-and-deaths-by-country" class="level2">
+<h2 class="anchored" data-anchor-id="today-we-will-be-scrapping-a-wikipedia-page-to-extract-gloabal-covid-cases-and-deaths-by-country">Today we will be scrapping a Wikipedia page to extract gloabal COVID cases and deaths by country</h2>
+<section id="step-1-open-the-page-inspect-it" class="level3">
+<h3 class="anchored" data-anchor-id="step-1-open-the-page-inspect-it">STEP 1 – Open the page &amp; inspect it</h3>
+<ul>
+<li>Visit the <strong>https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory</strong> (Chrome/Edge/Firefox).</li>
+<li>Right-click anywhere inside the data table → Inspect (or “Inspect Element”).</li>
+<li>Scroll through DevTools and see where the table is highlighted on the webpage</li>
+</ul>
+</section>
+<section id="step-2-identify-the-table-in-the-html-structure" class="level3">
+<h3 class="anchored" data-anchor-id="step-2-identify-the-table-in-the-html-structure">STEP 2 – Identify the table in the HTML structure</h3>
+<ul>
+<li>The table is nested inside a <code>&lt;div&gt;</code> with class <code>mw-parser-output</code>, which contains the main content of the Wikipedia page.</li>
+<li>The table itself is a <code>&lt;table&gt;</code> element with class <code>wikitable sortable</code>.</li>
+<li>when you find the right element, right click on the <code>&lt;table&gt;</code> tag in DevTools → Copy → Copy Full XPath</li>
+</ul>
+<p><strong>Here is he xpath example for the table</strong></p>
+<p>/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table</p>
+</section>
+<section id="step-3-use-r-to-read-the-html-and-extract-the-table" class="level3">
+<h3 class="anchored" data-anchor-id="step-3-use-r-to-read-the-html-and-extract-the-table">STEP 3 – Use R to read the HTML and extract the table</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rvest); <span class="fu">library</span>(janitor); <span class="fu">library</span>(dplyr)</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>url <span class="ot">&lt;-</span> <span class="st">"https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory"</span> <span class="co"># Define the target Wikipedia URL as a text string</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>page <span class="ot">&lt;-</span> <span class="fu">read_html</span>(url) <span class="co"># Download the entire HTML structure of the web page into R memory</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>covid_tbl <span class="ot">&lt;-</span> page <span class="sc">%&gt;%</span></span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">html_element</span>(<span class="at">xpath =</span> <span class="st">"/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table"</span>) <span class="sc">%&gt;%</span> <span class="co"># Use the XPath to locate the specific table element within the HTML structure</span></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">html_table</span>(<span class="at">fill =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> <span class="co"># Convert the HTML table into an R data frame, filling in any missing cells with NA</span></span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>(<span class="at">.name_repair =</span> <span class="st">"unique"</span>) <span class="sc">%&gt;%</span> <span class="co"># Convert the data frame to a tibble for easier manipulation, ensuring that column names are made unique if there are duplicates</span></span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clean_names</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>x1)</span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(covid_tbl)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 4
+  country                deaths_million deaths    cases      
+  &lt;chr&gt;                  &lt;chr&gt;          &lt;chr&gt;     &lt;chr&gt;      
+1 World[a]               893            7,113,952 779,124,306
+2 Peru                   6,603          221,071   4,533,765  
+3 Bulgaria               5,681          38,778    1,341,090  
+4 North Macedonia        5,429          9,991     352,093    
+5 Bosnia and Herzegovina 5,123          16,419    404,289    
+6 Hungary                5,072          49,124    2,240,865  </code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="this-works-but-its-not-very-reusable.-if-we-want-to-scrape-another-table-on-the-same-page-wed-have-to-copy-paste-and-change-the-xpath-again.-lets-make-a-function-to-do-this-more-cleanly." class="level2">
+<h2 class="anchored" data-anchor-id="this-works-but-its-not-very-reusable.-if-we-want-to-scrape-another-table-on-the-same-page-wed-have-to-copy-paste-and-change-the-xpath-again.-lets-make-a-function-to-do-this-more-cleanly.">This works, but it’s not very reusable. If we want to scrape another table on the same page, we’d have to copy-paste and change the XPath again. Let’s make a function to do this more cleanly.</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rvest); <span class="fu">library</span>(janitor); <span class="fu">library</span>(dplyr)</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="co"># --- New Code Chunk: Function to Scrape Tables via XPaths ---</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>url <span class="ot">&lt;-</span> <span class="st">"https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory"</span> <span class="co"># Define the target Wikipedia URL as a text string</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>page <span class="ot">&lt;-</span> <span class="fu">read_html</span>(url) <span class="co"># Download the entire HTML structure of the web page into R memory</span></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Define the custom function</span></span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>scrape_by_xpath <span class="ot">&lt;-</span> <span class="cf">function</span>(html_page, xpath_string) { </span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>  html_page <span class="sc">%&gt;%</span></span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">html_element</span>(<span class="at">xpath =</span> xpath_string) <span class="sc">%&gt;%</span></span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">html_table</span>(<span class="at">fill =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">as_tibble</span>(<span class="at">.name_repair =</span> <span class="st">"unique"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">clean_names</span>()</span>
+<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Store your two specific paths in variables</span></span>
+<span id="cb27-18"><a href="#cb27-18" aria-hidden="true" tabindex="-1"></a>path_cases    <span class="ot">&lt;-</span> <span class="st">"/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table"</span></span>
+<span id="cb27-19"><a href="#cb27-19" aria-hidden="true" tabindex="-1"></a>path_timeline <span class="ot">&lt;-</span> <span class="st">"/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[30]/table"</span></span>
+<span id="cb27-20"><a href="#cb27-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-21"><a href="#cb27-21" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Use the function to scrape both tables seamlessly</span></span>
+<span id="cb27-22"><a href="#cb27-22" aria-hidden="true" tabindex="-1"></a>covid_tbl_1 <span class="ot">&lt;-</span> <span class="fu">scrape_by_xpath</span>(page, path_cases) <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>x1) <span class="co"># drops the empty index column</span></span>
+<span id="cb27-23"><a href="#cb27-23" aria-hidden="true" tabindex="-1"></a>covid_tbl_2 <span class="ot">&lt;-</span> <span class="fu">scrape_by_xpath</span>(page, path_timeline) <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>x1) <span class="co"># drops the empty index column</span></span>
+<span id="cb27-24"><a href="#cb27-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-25"><a href="#cb27-25" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Preview the tables</span></span>
+<span id="cb27-26"><a href="#cb27-26" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(covid_tbl_1)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 4
+  country                deaths_million deaths    cases      
+  &lt;chr&gt;                  &lt;chr&gt;          &lt;chr&gt;     &lt;chr&gt;      
+1 World[a]               893            7,113,952 779,124,306
+2 Peru                   6,603          221,071   4,533,765  
+3 Bulgaria               5,681          38,778    1,341,090  
+4 North Macedonia        5,429          9,991     352,093    
+5 Bosnia and Herzegovina 5,123          16,419    404,289    
+6 Hungary                5,072          49,124    2,240,865  </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(covid_tbl_2)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 4
+  location      jan_1     feb_1     mar_1    
+  &lt;chr&gt;         &lt;chr&gt;     &lt;chr&gt;     &lt;chr&gt;    
+1 World         5,440,722 5,682,684 5,954,004
+2 United States 819,197   881,867   941,112  
+3 Brazil        618,984   626,854   649,134  
+4 India         481,486   496,242   514,023  
+5 Russia        309,707   332,012   352,446  
+6 Mexico        301,663   310,131   318,149  </code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="wrapping-up" class="level1">
+<h1>Wrapping Up</h1>
+<section id="key-take-aways" class="level2">
+<h2 class="anchored" data-anchor-id="key-take-aways">1. Key take-aways</h2>
+<ul>
+<li><p><strong>Same playbook, different sites</strong><br>
+No matter where the data lives, the steps are: find the URL, send a request, get the reply, turn it into a table, and write down what you did.</p></li>
+<li><p><strong>Keep it reproducible</strong><br>
+Save the URL (plus any filters), note the date you downloaded, and jot down which R packages you used. That’s enough for someone else (or future-you) to rerun the pull.</p></li>
+<li><p><strong>Respect the ecosystem</strong><br>
+Use an official API when one exists, slow down big jobs, and read the “terms of use.” Scraping is the last resort.</p></li>
+<li><p><strong>Automate early</strong><br>
+Wrap your code in a function and schedule it—then fresh data is only a click (or a cron job) away.</p></li>
+<li><p><strong>Stay curious</strong><br>
+New health data sources pop up all the time. Once you know the basics, trying a new one is mostly copy-paste.</p></li>
+</ul>
+</section>
+<section id="suggested-next-steps" class="level2">
+<h2 class="anchored" data-anchor-id="suggested-next-steps">2. Suggested next steps</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 37%">
+<col style="width: 62%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Level-up</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Async / parallel pulls</strong></td>
+<td>Try <code>furrr</code> or <code>curl_multi()</code> for paginated APIs with thousands of calls.</td>
+</tr>
+<tr class="even">
+<td><strong>Secrets management</strong></td>
+<td>Store tokens in <code>.Renviron</code>, <code>keyring</code>, or a cloud vault; never hard-code in scripts.</td>
+</tr>
+<tr class="odd">
+<td><strong>Robust scraping</strong></td>
+<td>Explore <code>chromote</code>, <code>RSelenium</code>, or <code>playwright</code> for JavaScript-heavy sites.</td>
+</tr>
+<tr class="even">
+<td><strong>Geospatial joins</strong></td>
+<td>Pair API outputs with <code>sf</code>, <code>tigris</code>, or <code>tidycensus::get_decennial()</code> boundary data.</td>
+</tr>
+<tr class="odd">
+<td><strong>Publication-ready docs</strong></td>
+<td>Convert this notebook to PDF, slide decks, or dashboards with Quarto multi-format.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="handy-links" class="level2">
+<h2 class="anchored" data-anchor-id="handy-links">3. Handy links</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Link</th>
+<th>Why you’d use it</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>CT Open Data Portal</strong> — <a href="https://data.ct.gov" class="uri">https://data.ct.gov</a></td>
+<td>State-level health &amp; policy datasets in a Socrata wrapper (supports <code>$select</code>, <code>$where</code>, etc.).</td>
+</tr>
+<tr class="even">
+<td><strong>Census Developer Portal</strong> — <a href="https://www.census.gov/data/developers/data-sets.html" class="uri">https://www.census.gov/data/developers/data-sets.html</a></td>
+<td>Official docs, variable lists, and examples for ACS, Decennial, Economic Census, and more.</td>
+</tr>
+<tr class="odd">
+<td><strong>NCHS Vital Statistics</strong> — <a href="https://www.cdc.gov/nchs/data_access/vitalstatsonline.htm" class="uri">https://www.cdc.gov/nchs/data_access/vitalstatsonline.htm</a></td>
+<td>Birth/death micro-data, natality, mortality, and compressed mortality files (often FTP + API hybrids).</td>
+</tr>
+<tr class="even">
+<td><strong>ClinicalTrials.gov API</strong> — <a href="https://clinicaltrials.gov/api/info/study_fields_list" class="uri">https://clinicaltrials.gov/api/info/study_fields_list</a></td>
+<td>Retrieve study fields, statuses, locations; essential for trial landscape or compliance work.</td>
+</tr>
+<tr class="odd">
+<td><strong>OpenFDA</strong> — <a href="https://open.fda.gov/apis/" class="uri">https://open.fda.gov/apis/</a></td>
+<td>Drug, device, food event surveillance; supports powerful nested queries and pagination.</td>
+</tr>
+<tr class="even">
+<td><strong>NCBI E-utilities</strong> — <a href="https://www.ncbi.nlm.nih.gov/books/NBK25500/" class="uri">https://www.ncbi.nlm.nih.gov/books/NBK25500/</a></td>
+<td>Programmatic PubMed, PMC, GenBank access; cornerstone for reproducible literature searches.</td>
+</tr>
+<tr class="odd">
+<td><strong>Socrata API docs</strong> — <a href="https://dev.socrata.com/docs/endpoints" class="uri">https://dev.socrata.com/docs/endpoints</a></td>
+<td>Generic guide for thousands of city/state portals (CDC, HHS, EPA, etc.).</td>
+</tr>
+<tr class="even">
+<td><strong>Census main API landing</strong> — <a href="https://api.census.gov/data/" class="uri">https://api.census.gov/data/</a></td>
+<td>Direct links to every vintage &amp; survey; great for discovering obscure datasets (e.g., LEHD, CPS).</td>
+</tr>
+<tr class="odd">
+<td><strong>CDC WONDER API help</strong> — <a href="https://wonder.cdc.gov/wonder/help/wonder-api.html" class="uri">https://wonder.cdc.gov/wonder/help/wonder-api.html</a></td>
+<td>Documentation for WONDER’s SQL-like query interface (mortality, natality, underlying cause of death).</td>
+</tr>
+<tr class="even">
+<td><strong>OHDSI GitHub</strong> — <a href="https://github.com/OHDSI/" class="uri">https://github.com/OHDSI/</a></td>
+<td>Open-source tooling (Atlas, Achilles) around the OMOP common data model — valuable for EHR research.</td>
+</tr>
+<tr class="odd">
+<td><strong>OHDSI Athena vocabularies</strong> — <a href="https://athena.ohdsi.org/search-terms/start" class="uri">https://athena.ohdsi.org/search-terms/start</a></td>
+<td>Download standard vocabularies (SNOMED, RxNorm, LOINC) for mapping local codes to OMOP.</td>
+</tr>
+<tr class="even">
+<td><strong>Example CDC dataset</strong> — <a href="https://dev.socrata.com/foundry/data.cdc.gov/wnjn-mave" class="uri">https://dev.socrata.com/foundry/data.cdc.gov/wnjn-mave</a></td>
+<td>A live schema page showing field types, sample API calls, and metadata.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="thank-you-stay-connected" class="level2">
+<h2 class="anchored" data-anchor-id="thank-you-stay-connected">4. Thank you &amp; stay connected!</h2>
+<p>Please email me at maximilian.wegener@yale.edu if you have any questions.</p>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

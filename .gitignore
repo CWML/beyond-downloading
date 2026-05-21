@@ -1,0 +1,29 @@
+# ─── R / Quarto ──────────────────────────────────────
+.Rhistory
+.RData
+.Rproj.user/
+.Renviron
+.httr-oauth
+_quarto/
+_cache/
+*.nb.html          # knitted notebooks kept out of version control
+*_files/           # reveal.js / html dependencies
+notes.r
+
+# ─── Python (optional) ───────────────────────────────
+__pycache__/
+*.pyc
+.venv/
+env/
+*.ipynb_checkpoints
+
+# ─── OS / editor cruft ───────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ─── Data you don’t want on GitHub ───────────────────
+data/raw/
+*.csv.gz
+*.zip
