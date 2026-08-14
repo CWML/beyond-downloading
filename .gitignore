@@ -23,12 +23,9 @@ Thumbs.db
 .vscode/
 .idea/
 
-# ─── Data you don’t want on GitHub ───────────────────
+# ─── Data & Private Folders ──────────────────────────
 data/raw/
 *.csv.gz
 *.zip
-
-# Quarto’s render + cache folders
-_quarto/
-*_files/                 # covers any “something_files” folder
-beyond-downloading_files/
+notes/             # Ignores 'notes' folder anywhere in project
+OLD/               # Ignores 'OLD' folder anywhere in project

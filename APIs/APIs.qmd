@@ -1,0 +1,619 @@
+---
+title: "Beyond Downloading: Automating Data Retrieval with APIs" 
+subtitle: "A Practical Guide for Biomedical & Public Health Researchers"
+author: "Max Wegener · Cushing/Whitney Medical Library"
+date: 2026-08-17
+format:
+  revealjs:
+    theme: simple
+    slide-number: true
+    #footer: "Ask → Read → Run → Verify → Iterate"
+    code-line-numbers: false
+    title-slide-attributes:
+      data-background-color: "#1E293B"
+execute:
+  echo: true
+  eval: false
+filters:
+  - webr
+---
+
+## Welcome + Goals {background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+**Today you’ll learn to:**
+
+::: {.callout icon="false"}
+- Explain what an API is and why researchers use them
+- Make API requests and parse JSON into analysis-ready tables using R and Python
+- Use public health / biomedical APIs (including the Census API)
+:::
+
+------------------------------------------------------------------------
+
+## Why Learning About APIs Matters {background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+::: incremental
+- **Reproducible** data retrieval
+- **Faster updates** and larger-scale studies
+- **Cleaner provenance** (query + timestamp + version)
+:::
+
+------------------------------------------------------------------------
+
+## Agenda {background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+::: incremental
+1.  API Fundamentals and Background
+2.  Available APIs
+3.  Live R Demonstrations
+4.  Wrap-up & Resources
+:::
+
+------------------------------------------------------------------------
+
+## Part 1 - API Fundamentals and Background {.center background-color="#1E293B"}
+
+------------------------------------------------------------------------
+
+## Ground Rules for Research Integrity & Compliance {background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+::: incremental
+- Prefer **official APIs** and **bulk downloads** over scraping
+- Respect **terms of use**, **rate limits**, and institutional policy
+- Avoid collecting **PII/PHI**
+- Use **caching** and **delays** to minimize server load
+- Document provenance: *what you requested, when, from where*
+:::
+
+------------------------------------------------------------------------
+
+## What is an API? {.center background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+An **Application Programming Interface (API)** is a structured way to request data from a service.
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+For researchers, APIs are "programmable search + download":
+
+::: {.callout icon="false"}
+- Predictable formats (often **JSON**, sometimes **XML** or **CSV**)
+- Documented inputs (parameters)
+- Standardized outputs (fields)
+:::
+
+------------------------------------------------------------------------
+
+## Why APIs are preferred {background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+::: incremental
+- **Reproducible**: same query, same retrieval method
+- **More stable**: APIs change less often than website layouts
+- **Automatable**: supports batching, scheduling, and pipelines
+- **Transparent**: explicit parameters, documentation, and usage rules
+:::
+
+------------------------------------------------------------------------
+
+## Common Research workflow {background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+API Request ──► JSON / XML Response ──► Parse & Flatten in R ──► Data Frame (Table) ──► (Optional) Save as CSV
+
+------------------------------------------------------------------------
+
+## Common Data Formats: CSV, JSON, and XML {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### The Data Journey
+
+1.  **What the API sends back:** **JSON** or **XML**
+    - Hierarchical, nested key-value structures optimized for web transit.
+2.  **What R turns it into:** **Data Frame / Tibble**
+    - R parses and "flattens" the nested JSON into rows and columns in memory so you can immediately run `dplyr` or `ggplot2`.
+3.  **What you can export to:** **CSV**
+    - A flat, plain-text file format you can save to disk, open in Excel, or share with collaborators.
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+💡 **Bottom Line:** Web systems speak **JSON/XML**. Researchers analyze **Tables**. R acts as the translator between the two.
+:::
+
+------------------------------------------------------------------------
+
+## CSV (Comma-Separated Values) {background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### Raw CSV Text:
+
+``` csv
+id,age,sex
+101,42,F
+102,35,M
+```
+
+------------------------------------------------------------------------
+
+## JSON (JavaScript Object Notation) {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### Raw JSON Structure:
+
+``` json
+[
+  {
+    "id": 101,
+    "age": 42,
+    "sex": "F"
+  },
+  {
+    "id": 102,
+    "age": 35,
+    "sex": "M"
+  }
+]
+```
+
+::: {.callout-note icon="false"}
+JSON stores data as nested key–value structures: flexible and web-friendly commonly used in modern APIs may require "flattening" into tables
+:::
+
+------------------------------------------------------------------------
+
+## XML (eXtensible Markup Language) {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### Raw XML Structure:
+
+``` xml
+<participants>
+  <participant>
+    <id>101</id>
+    <age>42</age>
+    <sex>F</sex>
+  </participant>
+  <participant>
+    <id>102</id>
+    <age>35</age>
+    <sex>M</sex>
+  </participant>
+</participants>
+```
+
+::: {.callout-note icon="false"}
+- XML organizes data using nested tags
+- older but still widely used in biomedical and government systems
+- highly structured and descriptive
+- commonly seen in legacy APIs and document-based databases
+:::
+
+------------------------------------------------------------------------
+
+## Core vocabulary {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+- **Endpoint**: the URL for a resource (e.g., `/search`)
+- **Method**: `GET` (retrieve), `POST` (submit query)
+- **Parameters**: filters like `?year=2023&state=CT`
+- **Auth**: key/token, sometimes OAuth
+- **Rate limits**: requests per time period
+- **Pagination**: page/offset/cursor for large results
+- **Response**: JSON objects you parse into tables
+
+::: {.callout-note icon="false"}
+What is pagination?
+
+**Pagination** is how an API delivers large result sets in smaller “pages” to control load and response size.
+
+Why pagination exists:
+
+- prevents oversized responses
+- improves reliability
+- supports rate limiting
+:::
+
+------------------------------------------------------------------------
+
+## Common HTTP methods (what they *mean*) {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+- **`GET`** — retrieve data (most common for research data pulls)
+- `POST` — submit a query or create a record (common for complex searches; also for systems like REDCap when writing data)
+- `PUT/PATCH` — update a record (more common in operational systems than public datasets)
+- `DELETE` — remove a record (rare in public data APIs)
+
+::: {.callout-note icon="false"}
+**Research norm:** you’ll primarily use `GET`, and occasionally `POST` for “search” endpoints or authenticated systems.
+:::
+
+------------------------------------------------------------------------
+
+## Status codes you will see (and how to respond) {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+- `200 OK` — success
+- `400 Bad Request` — your parameters are malformed
+- `401 Unauthorized` — missing/invalid token
+- `403 Forbidden` — you’re authenticated but not allowed (permissions/terms)
+- `404 Not Found` — wrong endpoint or resource ID
+- `429 Too Many Requests` — you hit a rate limit (slow down; retry later)
+- `500/503` — server problems (retry with backoff)
+
+------------------------------------------------------------------------
+
+## How researchers use APIs (examples) {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: incremental
+- Literature: retrieve PubMed metadata for reproducible searches
+- Safety: monitor OpenFDA adverse event reports
+- Trials: query ClinicalTrials.gov trial registries
+- EHR & Clinical: extract patient cohort records via REDCap or SMART on FHIR
+- Oncology & Genomics: query patient outcomes and tumor data via NCI GDC
+- Surveillance: download public health indicators and dashboards
+- Context: integrate Census covariates into analyses
+- Biomedical data: fetch gene expression datasets and biosample metadata from NCBI GEO
+:::
+
+------------------------------------------------------------------------
+
+## API workflow (the “researcher loop”) {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: incremental
+1.  Identify source + documentation\
+2.  Draft a query (fields, filters, time range)\
+3.  Request data (respect limits)\
+4.  Validate + clean\
+5.  Save raw + processed data\
+6.  Record provenance (URL, params, date, version)
+:::
+
+------------------------------------------------------------------------
+
+## Demonstration approach today (language-agnostic) {background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+We’ll show examples in **R** patterns: - build URL with params - GET request - parse JSON - transform to a table - export to CSV - log provenance
+
+------------------------------------------------------------------------
+
+## Part 2 — Available APIs {.center background-color="#1E293B"}
+
+------------------------------------------------------------------------
+
+## Availble APIs you can access (more or less) {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+- REDCap
+  - Need access to a REDCap project
+  - **Need to have an API Key from adminstrator and API Playground turned on for your project**
+- R Packages
+  - Many packages act as friendly clients to public data APIs or maintained data endpoints
+- PubMed / NCBI E-utilities (literature metadata)
+  - https://www.ncbi.nlm.nih.gov/books/NBK25500/
+- ClinicalTrials.gov (trial registry metadata)
+  - https://clinicaltrials.gov/data-api/about-api
+- OpenFDA (drugs, devices, adverse events)
+  - https://open.fda.gov/apis/
+- CDC open data (often via Socrata patterns)
+  - https://wonder.cdc.gov/wonder/help/wonder-api.html
+- Census API (ACS, decennial, geography)
+  - https://www.census.gov/data/developers/data-sets.html
+  - **Need to have an API Key from census.gov**
+- UMLS API (medical terminologies: SNOMED, RxNorm, ICD-10)
+  - https://documentation.uts.nlm.nih.gov/rest/home.html
+  - **Need to have an API Key from UTS account (uts.nlm.nih.gov)**
+
+------------------------------------------------------------------------
+
+## REDCap APIs (download *and* upload) {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+Many institutions run **REDCap**, which includes an API for:
+:::
+
+::: {style="margin-top: 1em;"}
+:::
+
+- exporting data (CSV/JSON)
+- importing/updating records
+- exporting metadata (data dictionaries)
+- managing instruments/events (project-dependent)
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+In practice, this enables reproducible pulls of study data *and* automated pipelines for cleaning/QA workflows.
+:::
+
+------------------------------------------------------------------------
+
+## Example of R packages that provide API-style access {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+- `cdcfluview` (influenza surveillance-related retrieval patterns)
+- `RNSSP` (syndromic surveillance access patterns, where available/authorized)
+- `NHANES` (NHANES data retrieval and convenience functions)
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-tip title="Reproducible Practices"}
+When using package-based access, still apply the same habits:
+
+- Record package version
+- Record query parameters
+- Record access date/time and dataset version
+:::
+
+------------------------------------------------------------------------
+
+## PubMed (NCBI E-utilities) — Literature Metadata {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### Key Research Use Cases
+
+- **Reproducible Literature Workflows:** Script PubMed queries to rerun searches automatically and log exact record counts.
+- **Synthesizing Evidence:** Pull titles, abstracts, and publication dates directly into R/Python for screening.
+- **MeSH & Bibliometric Analysis:** Harvest Medical Subject Headings and citation metadata for field mapping.
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-warning icon="false"}
+### ⚠️ NCBI Usage Guidelines
+
+- **Rate Limits:** 3 requests/sec default $\rightarrow$ **10 requests/sec with a free NCBI API Key**.
+- **Identification:** Always pass your `email` and `tool` name in API calls so NCBI doesn't block your IP.
+- **Output Format:** E-utilities returns **XML** (use R's `rentrez` or `xml2` packages to parse into tables).
+:::
+
+------------------------------------------------------------------------
+
+## ClinicalTrials.gov — Trial Registry Metadata {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### Key Research Use Cases
+
+- **Landscape Scans:** Find trials by condition, drug/intervention, location, phase, or sponsor type.
+- **Meta-Research & Compliance:** Compare primary outcomes to published literature and monitor reporting compliance (FDAAA 801).
+- **Eligibility Criteria Mining:** Extract inclusion/exclusion criteria text for computable phenotype design.
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+💡 **API Practicalities:** Uses the modernized **v2 REST API** (JSON output). **No API key is required**, making it ideal for quick scripting and reproducible workflows.
+:::
+
+------------------------------------------------------------------------
+
+## openFDA — Adverse Events & Drug Labeling {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### 💊 Research Use Cases
+
+- **Pharmacovigilance & Safety Signals:** Scan post-marketing FDA adverse event reports (FAERS) for unexpected side effects.
+- **Drug Labeling & Package Inserts:** Search structured drug labels for contraindications, black box warnings, or active ingredients.
+- **Medical Devices & Recalls:** Query device clearance data (510k), enforcement reports, and recall actions.
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+### 🔑 API Quick Facts
+
+- **Auth:** 🟢 **No key required for testing** *(Optional free key raises limit to 240 req/min)*
+- **Format:** **JSON** \| **Endpoint:** `https://api.fda.gov/drug/event.json`
+- **Teaching Highlights:**
+  - Native `count` parameter for instant aggregations without downloading raw records
+  - Perfect for teaching API search parameters, filtering, and pagination (`limit` & `skip`)
+:::
+
+::: notes
+- openFDA is built on Elasticsearch, meaning its search parameter syntax allows complex Boolean logic directly in the URL query string.
+- Highlight the `count` parameter: instead of downloading 50,000 JSON records to tabulate in R, `count=patient.drug.medicinalproduct.exact` lets the API do the aggregation server-side and return summary counts instantly!
+:::
+
+------------------------------------------------------------------------
+
+## CDC Open Data — Socrata & SoQL Queries {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### Key Research Use Cases
+
+- **Surveillance & Dashboards:** Query municipal and national health indicators (e.g., NCHS mortality data, surveillance trends).
+- **Server-Side Data Subsetting:** Filter massive datasets on CDC servers before pulling them into R/Python.
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+### 💡 SoQL (Socrata Query Language) Syntax
+
+Socrata APIs support SQL-style parameters in the request URL: \* **`$select=date, state, cases`** — Select only columns of interest \* **`$where=state='CT' AND cases > 100`** — Apply logical filters \* **`$limit=5000`** — Control payload size
+
+*Example Endpoint:* `https://data.cdc.gov/resource/{dataset_id}.json?$where=state='CT'`
+:::
+
+------------------------------------------------------------------------
+
+## Census API — Population Context & Social Determinants {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### 🏙️ Research Use Cases
+
+- **Population Denominators:** Convert raw disease/outcome counts into standardized rates (e.g., per 100,000 population).
+- **Social Determinants of Health (SDoH):** Integrate neighborhood-level covariates (median household income, poverty rate, education, internet access, health insurance coverage).
+- **Fine-Grained Geographies:** Query small administrative units—from **state** and **county** down to **ZIP Code Tabulation Areas (ZCTAs)**, **Census Tracts**, and **Block Groups**.
+- **Trend & Disparities Analysis:** Compare multi-year American Community Survey (ACS 1-year and 5-year) estimates over time.
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+### 📊 Key Datasets & Products
+
+- **ACS (American Community Survey):** Annual sample survey; 5-year estimates offer high precision at small geographies (Tract/ZCTA). Includes estimates (`E`) and Margins of Error (`M`).
+- **Decennial Census:** Complete 10-year enumeration (2000, 2010, 2020) for exact total counts and basic demographics.
+:::
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: notes
+- Emphasize that in public health/biomedical informatics, outcome data rarely comes with demographic denominators—the Census API provides those denominators.
+- Mention ACS Margins of Error (MOEs): unlike simple administrative databases, ACS data always includes sampling uncertainty.
+:::
+
+::: {style="margin-top: 1em;"}
+:::
+
+### US Census API — Key Setup & R Integration {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+1.  **Request a Free Key:** Sign up in seconds at `https://api.census.gov/data/key_signup.html`
+2.  **Securely Store in R (`.Renviron`):** Use the `tidycensus` package helper to save your key permanently without hardcoding credentials in your scripts:
+:::
+
+------------------------------------------------------------------------
+
+## UMLS API — Medical Terminologies & Crosswalking {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### 🩺 Research Use Cases
+
+- **Terminology Crosswalking:** Map concepts across different coding systems (e.g., bridge an ICD-10 billing code to a SNOMED CT clinical term or RxNorm drug concept).
+- **Concept Normalization:** Standardize free-text clinical notes or diagnostic terms to unique **UMLS Concept Unique Identifiers (CUIs)**.
+- **Semantic Relationships:** Query parent/child hierarchies, synonyms, and definitions across 200+ biomedical vocabularies (LOINC, MeSH, CPT, etc.).
+- **Phenotype & Cohort Building:** Expand clinical query definitions by fetching all related source-asserted codes for a disease or treatment.
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+### 📊 Key Metathesaurus Features
+
+- **CUIs (Concept Unique Identifiers):** Universal cluster IDs that link identical meanings across distinct source vocabularies.
+- **Semantic Network:** Categorizes concepts into broad semantic types (e.g., *Disease or Syndrome*, *Pharmacologic Substance*).
+:::
+
+::: notes
+- UMLS is maintained by the NIH National Library of Medicine (NLM).
+- Emphasize that in biomedical informatics, different databases use different coding standards (e.g., EHRs use SNOMED/LOINC, pharmacy data uses RxNorm, billing uses ICD-10). UMLS is the "rosetta stone" connecting them.
+:::
+
+------------------------------------------------------------------------
+
+## Part 3: Live R Demonstrations {.center background-color="#1E293B"}
+
+::: r-fit-text
+💻 Time for Live Coding
+:::
+
+Please switch over to your editor and open:\
+`API_demonstration.qmd`
+
+------------------------------------------------------------------------
+
+## Part 4: Wrap-Up & Handy Resources {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### 🔗 Essential API & Data Resource Index
+
+| Category | Resource & Explicit URL | Purpose & Highlights |
+|:-----------------------|:-----------------------|:-----------------------|
+| **Literature & Trials** | **PubMed E-utilities**<br><small><https://www.ncbi.nlm.nih.gov/books/NBK25500/></small><br><br>**ClinicalTrials.gov API**<br><small><https://clinicaltrials.gov/data-api/about-api></small> | Reproducible search, PMID metadata, screening pipelines.<br><br>Trial registry metadata, eligibility text, compliance tracking. |
+| **Terminologies & Coding** | **UMLS REST API**<br><small><https://documentation.uts.nlm.nih.gov/rest/home.html></small><br><br>**RxNav & RxNorm APIs**<br><small><https://lhncbc.nlm.nih.gov/RxNav/APIs/index.html></small><br><br>**VSAC SVS API**<br><small><https://www.nlm.nih.gov/vsac/support/usingvsac/vsacsvsapiv2.html></small> | Crosswalk SNOMED, ICD-10, CPT, and LOINC via CUIs.<br><br>Query drug concepts, ingredients, and RxTerms hierarchies.<br><br>Programmatically retrieve NLM value set expansions and OIDs. |
+| **EHR & Patient Care** | **MedlinePlus Connect**<br><small><https://medlineplus.gov/medlineplus-connect/></small><br><br>**OHDSI / Athena**<br><small><https://athena.ohdsi.org/search-terms/start></small> | Link diagnosis/drug codes (Infobutton standard) to patient info.<br><br>Download standardized vocabularies for the OMOP CDM. |
+| **Surveillance & FDA** | **openFDA**<br><small><https://open.fda.gov/apis/></small><br><br>**CDC WONDER API**<br><small><https://wonder.cdc.gov/wonder/help/wonder-api.html></small><br><br>**Socrata Portal Docs**<br><small><https://dev.socrata.com/docs/endpoints></small> | Adverse event reporting (FAERS), drug labels, and device recalls.<br><br>SQL-like query interface for underlying cause of death & mortality.<br><br>Generic syntax guide (`$select`, `$where`, `$limit`) for municipal/state portals. |
+| **Demographics & Local** | **Census Developer Portal**<br><small><https://www.census.gov/data/developers/data-sets.html></small><br><br>**CT Open Data Portal**<br><small><https://data.ct.gov></small> | Population denominators, SDoH metrics, and spatial boundaries.<br><br>State-level health & policy datasets in a Socrata wrapper. |
+
+::: {style="margin-top: 1em;"}
+:::
+
+### 📧 Thank You & Stay Connected!
+
+- **Questions or Feedback?** Email: `maximilian.wegener@yale.edu`
+
+------------------------------------------------------------------------
+
+## Survey {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+### Please scan the QR code to take the class survey
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+![](images/paste-1.png)

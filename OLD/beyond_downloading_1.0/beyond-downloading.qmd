@@ -10,7 +10,9 @@ execute:
   warning: false
   message: false
 ---
+
 # Packages
+
 ```{r}
 # ---- setup: install + load everything we use ----
 if (!requireNamespace("pacman", quietly = TRUE))
@@ -26,7 +28,7 @@ pacman::p_load(
   # HTTP / API helpers
   httr2, httr, jsonlite,
   
-  # Census
+  # Census 
   tidycensus, censusapi,
   
   # NHANES
@@ -55,18 +57,18 @@ pacman::p_load(
 
 **Why it matters**
 
-- Reproducible data retrieval 
+- Reproducible data retrieval
 - Faster updates and larger-scale studies
 - Cleaner provenance (query + timestamp + version)
 
 ## Agenda
 
-1. API fundamentals
-2. API workflow demonstrations  
-3. Public health & biomedical APIs  
-4. Census API example  
-5. Web scraping concepts + ethics  
-6. Reproducibility checklist + resources
+1.  API fundamentals
+2.  API workflow demonstrations\
+3.  Public health & biomedical APIs\
+4.  Census API example\
+5.  Web scraping concepts + ethics\
+6.  Reproducibility checklist + resources
 
 ## Ground rules (research integrity + compliance)
 
@@ -84,7 +86,7 @@ An **Application Programming Interface (API)** is a structured way to request da
 
 For researchers, APIs are “programmable search + download”:
 
-- predictable formats (often **JSON** but sometimes **XML** or **CSV**) 
+- predictable formats (often **JSON** but sometimes **XML** or **CSV**)
 - documented inputs (parameters)
 - standardized outputs (fields)
 
@@ -94,14 +96,11 @@ APIs commonly return data in **JSON** or **XML**, while researchers often analyz
 
 ### CSV (Comma-Separated Values)
 
-A CSV is a plain-text table:
-- rows = observations
-- columns = variables
-- easy to open in Excel, R, Python, or Stata
+A CSV is a plain-text table: - rows = observations - columns = variables - easy to open in Excel, R, Python, or Stata
 
 Example:
 
-```csv
+``` csv
 id,age,sex
 101,42,F
 102,35,M
@@ -117,7 +116,7 @@ JSON stores data as nested key–value structures:
 
 Example:
 
-```json
+``` json
 [
   {
     "id": 101,
@@ -142,7 +141,7 @@ XML organizes data using nested tags:
 
 Example:
 
-```xml
+``` xml
 <participants>
   <participant>
     <id>101</id>
@@ -180,7 +179,6 @@ Why pagination exists:
 - improves reliability
 - supports rate limiting
 
-
 ## Core vocabulary (fast)
 
 - **Endpoint**: the URL for a resource (e.g., `/search`)
@@ -199,14 +197,10 @@ Many health and public data services expose **RESTful** (or “REST-like”) API
 
 In REST-style APIs, you interact with **resources** (things) using URLs, and you receive **representations** (often JSON) of those resources.
 
-Examples of “resources” in biomedical/public health contexts:
-- a publication record
-- a clinical trial
-- an adverse event report
-- a county-level indicator
-- a dataset row in an open-data portal
+Examples of “resources” in biomedical/public health contexts: - a publication record - a clinical trial - an adverse event report - a county-level indicator - a dataset row in an open-data portal
 
 ### Common HTTP methods (what they *mean*)
+
 - `GET` — retrieve data (most common for research data pulls)
 - `POST` — submit a query or create a record (common for complex searches; also for systems like REDCap when writing data)
 - `PUT/PATCH` — update a record (more common in operational systems than public datasets)
@@ -215,6 +209,7 @@ Examples of “resources” in biomedical/public health contexts:
 **Research norm:** you’ll primarily use `GET`, and occasionally `POST` for “search” endpoints or authenticated systems.
 
 ### Status codes you will see (and how to respond)
+
 - `200 OK` — success
 - `400 Bad Request` — your parameters are malformed
 - `401 Unauthorized` — missing/invalid token
@@ -224,33 +219,20 @@ Examples of “resources” in biomedical/public health contexts:
 - `500/503` — server problems (retry with backoff)
 
 ### Headers (metadata about the request/response)
-Headers often matter in practice:
-- `Accept: application/json` — ask for JSON
-- `User-Agent` — identify your tool (polite practice for scraping; sometimes for APIs too)
-- `Authorization: Bearer <token>` — common token format
-- API key headers (varies by service)
+
+Headers often matter in practice: - `Accept: application/json` — ask for JSON - `User-Agent` — identify your tool (polite practice for scraping; sometimes for APIs too) - `Authorization: Bearer <token>` — common token format - API key headers (varies by service)
 
 ### Parameters and filtering
-Most APIs let you filter/shape results using query parameters, such as:
-- date ranges: `start_date=...&end_date=...`
-- geography: `state=09&county=001`
-- selecting fields: `fields=...`
-- sorting: `sort=...`
+
+Most APIs let you filter/shape results using query parameters, such as: - date ranges: `start_date=...&end_date=...` - geography: `state=09&county=001` - selecting fields: `fields=...` - sorting: `sort=...`
 
 ### Data formats: JSON and “tidying”
-API responses are often **nested JSON**, meaning you may need to:
-- “flatten” nested objects into columns
-- unpack arrays (one-to-many relationships)
-- cast strings to dates/numbers
-- handle missing fields robustly
+
+API responses are often **nested JSON**, meaning you may need to: - “flatten” nested objects into columns - unpack arrays (one-to-many relationships) - cast strings to dates/numbers - handle missing fields robustly
 
 ### Provenance: what to record for methods/reproducibility
-For every API pull, log:
-- endpoint URL
-- parameters (including filters and selected fields)
-- access date/time (UTC)
-- API version (if available)
-- software/package versions used to retrieve the data
+
+For every API pull, log: - endpoint URL - parameters (including filters and selected fields) - access date/time (UTC) - API version (if available) - software/package versions used to retrieve the data
 
 ## How biomedical researchers use APIs (examples)
 
@@ -262,22 +244,16 @@ For every API pull, log:
 
 ## API workflow (the “researcher loop”)
 
-1. Identify source + documentation  
-2. Draft a query (fields, filters, time range)  
-3. Request data (respect limits)  
-4. Validate + clean  
-5. Save raw + processed data  
-6. Record provenance (URL, params, date, version)  
+1.  Identify source + documentation\
+2.  Draft a query (fields, filters, time range)\
+3.  Request data (respect limits)\
+4.  Validate + clean\
+5.  Save raw + processed data\
+6.  Record provenance (URL, params, date, version)
 
 ## Demonstration approach today (language-agnostic)
 
-We’ll show examples in **R and Python** patterns:
-- build URL with params
-- GET request
-- parse JSON
-- transform to a table
-- export to CSV
-- log provenance
+We’ll show examples in **R and Python** patterns: - build URL with params - GET request - parse JSON - transform to a table - export to CSV - log provenance
 
 # Part 2 — Publicly available APIs (tour)
 
@@ -294,10 +270,9 @@ Examples to explore (depending on your research):
 - CDC open data (often via Socrata patterns)
   - https://wonder.cdc.gov/wonder/help/wonder-api.html
 - Census API (ACS, decennial, geography)
-  - https://www.census.gov/data/developers/data-sets.html 
+  - https://www.census.gov/data/developers/data-sets.html
 
-
-## APIs in the tools you already use (REDCap | R packages | Python libraries)
+## APIs in the tools you already use (REDCap \| R packages \| Python libraries)
 
 ### REDCap APIs (download *and* upload)
 
@@ -324,7 +299,6 @@ When using package-based access, still apply the same reproducibility habits:
 - record query parameters
 - record access date/time and dataset version
 
-
 ## Choosing an API dataset (quick criteria)
 
 - What is the **unit of analysis**? (person, county, hospital, trial)
@@ -333,19 +307,16 @@ When using package-based access, still apply the same reproducibility habits:
 - What fields are available? Are definitions clear?
 - Are there stable identifiers? (FIPS, NPI, trial IDs, DOIs)
 
-
 ## API demonstrations (one per source)
 
 ### NHANES R package — survey data access
 
-**Use cases**
-- quick access to NHANES data
-- access the most recent survey cycles without manual file downloads
-- merge datasets across modules using participant ID (`SEQN`)
+**Use cases** - quick access to NHANES data - access the most recent survey cycles without manual file downloads - merge datasets across modules using participant ID (`SEQN`)
 
 **NHANES organizes data into separate modules (demographics, labs, examinations, questionnaires, etc.), which are linked by participant ID (`SEQN`).**
 
 #### Query demographic and body measurement datasets
+
 ```{r}
 # R demo skeleton (NHANES via nhanesA package)
 # packages used: NHANES, nhanesA, tidyverse
@@ -354,7 +325,7 @@ When using package-based access, still apply the same reproducibility habits:
 nhanes_demo <- nhanes('DEMO_L')
 #head(nhanes_demo)
 
-# Example: get demographic data for 2021-2023 cycle (most recent) denoted by "L"
+# Example: get physical measurement data for 2021-2023 cycle (most recent) denoted by "L"
 nhanes_bmx <- nhanes('BMX_L')
 #head(nhanes_bmx)
 ```
@@ -441,8 +412,8 @@ studies <- data$studies            # flatten nested JSON into a data frame
 # ---- inspect / use ----
 studies_tbl <- as_tibble(studies)
 #print(studies_tbl, n = 10, width = Inf)
-#str(studies_tbl)
-``` 
+str(studies_tbl)
+```
 
 ### OpenFDA — adverse events / labeling
 
@@ -483,7 +454,7 @@ fda_df <- j$results %>%            # NULL if no hits
 
 Many government open-data portals use Socrata APIs, which support SQL-like query parameters such as `$select`, `$where`, and `$limit`.
 
-https://dev.socrata.com/docs/endpoints 
+https://dev.socrata.com/docs/endpoints
 
 **Use cases**
 
@@ -518,10 +489,10 @@ catalog$results[[1]]$resource$id
 # Replace with a concrete dataset endpoint you choose for class:
 # Example form: https://data.cdc.gov/resource/XXXX-XXXX.json
 
-endpoint <- "https://data.cdc.gov/resource/akn2-qxic.json"
+endpoint <- "https://data.cdc.gov/resource/aemt-mg7g.json"
 
 resp <- request(endpoint) |>
-  req_url_query(`$limit` = 10) |>
+  req_url_query(`$limit` = 20) |>
   req_perform()
 
 resp_dat <- fromJSON(resp_body_string(resp), flatten = TRUE)
@@ -532,33 +503,35 @@ as_tibble(resp_dat)
 
 ## Why the Census/ACS matters in health research
 
-Adds **population context** for: 
+Adds **population context** for:
 
 - Denominators to turn counts into rates
 - Social determinants proxies (income, education, housing, internet)
 - Fine-grained geographies (tract, ZIP, county, ZCTA, PUMA, etc.)
 - Annual or 5-year series for trend analysis
 
-Common outputs: 
+Common outputs:
 
-- tract/county/state estimates 
+- tract/county/state estimates
 - ACS variables (multi-year)
 
 ## Getting a Census API token
 
-1. Request one free key: https://api.census.gov/data/key_signup.html
-2. Store it safely (e.g. in ~/.Renviron as CENSUS_API_KEY=ABC…).
-3. Load it in R:
+1.  Request one free key: https://api.census.gov/data/key_signup.html
+2.  Store it safely (e.g. in \~/.Renviron as CENSUS_API_KEY=ABC…).
+3.  Load it in R:
 
 ## Store your Census key (R example)
+
 ```{r}
 # Set your key in .Renviron (permanenet, editsable, one-time setup)
 # Should look like this: CENSUS_API_KEY=YOUR_KEY_HERE
 
-#file.edit("~/.Renviron")
+file.edit("~/.Renviron")
 ```
 
 ## Load your Census API key from environment variables (R example)
+
 ```{r}
 # You only need to run this once per R session to load the key into your environment. It will be available for all tidycensus functions after this.
 
@@ -569,6 +542,7 @@ census_api_key(Sys.getenv("CENSUS_API_KEY"), install = TRUE, overwrite = TRUE)
 ```
 
 ## Test your key and make a simple request (R example)
+
 ```{r}
 # This is a simple test to see if your key is working and to get a basic population estimate for all states in 2023. You should see a table with state names, population estimates, and margins of error.
 
@@ -577,7 +551,7 @@ census_api_key(Sys.getenv("CENSUS_API_KEY"), install = TRUE, overwrite = TRUE)
 get_acs(geography = "state", variables = "B01001_001", year = 2023)
 ```
 
-## Census API: geographies + joins 
+## Census API: geographies + joins
 
 ### Guide to US Census Bureau Data Tables (ACS)
 
@@ -585,19 +559,14 @@ The American Community Survey (ACS) tracks over 1,400 demographic and economic m
 
 #### 1. Anatomy of a Census Variable Code
 
-Take the code **`B01001_001`**:
-* **`B`** (or **`C`**): The Table Type (*Base* or *Collapsed*).
-* **`01`**: The Broad Subject Code (*Age & Sex*).
-* **`001`** (before the underscore): The unique table sequence sequence number.
-* **`_001`** (after the underscore): The specific **line number** (row) inside that table. 
-  * *Tip: Line `_001` is almost always the "Total" count for that whole table.*
+Take the code **`B01001_001`**: \* **`B`** (or **`C`**): The Table Type (*Base* or *Collapsed*). \* **`01`**: The Broad Subject Code (*Age & Sex*). \* **`001`** (before the underscore): The unique table sequence sequence number. \* **`_001`** (after the underscore): The specific **line number** (row) inside that table. \* *Tip: Line `_001` is almost always the "Total" count for that whole table.*
 
 #### 2. Cheat Sheet: Table Subject Prefixes
 
 The first two digits after the leading letter tell you exactly what topic the table covers:
 
 | Prefix | Subject Category | Example Metrics Included |
-| :--- | :--- | :--- |
+|:-----------------------|:-----------------------|:-----------------------|
 | **`01` to `07`** | **Core Demographics** | Age, Sex, Race, Ancestry, and Place of Birth |
 | **`08`** | **Commuting & Transit** | Remote work, public transit use, and travel times to work |
 | **`11` to `13`** | **Households & Family** | Marital status, family size, and fertility rates |
@@ -612,17 +581,18 @@ The first two digits after the leading letter tell you exactly what topic the ta
 
 When querying datasets using `get_acs()`, these tables are the most popular for economic, sociological, and geographical data analysis:
 
-* **`B19013`** — Median Household Income
-* **`B17001`** — Poverty Status by Sex and Age
-* **`B15003`** — Educational Attainment (Population 25 years and older)
-* **`B25077`** — Median Value of Owner-Occupied Housing Units
-* **`B28002`** — Presence and Type of Household Internet Access (The "Digital Divide")
-* **`B25044`** — Vehicles Available per Household
+- **`B19013`** — Median Household Income
+- **`B17001`** — Poverty Status by Sex and Age
+- **`B15003`** — Educational Attainment (Population 25 years and older)
+- **`B25077`** — Median Value of Owner-Occupied Housing Units
+- **`B28002`** — Presence and Type of Household Internet Access (The "Digital Divide")
+- **`B25044`** — Vehicles Available per Household
 
 #### 4. `B` Tables vs. `C` Tables (Base vs. Collapsed)
-* **`B` (Base Tables):** Provide micro-detailed row breakdowns (e.g., tracking poverty across 20+ micro-age brackets).
-* **`C` (Collapsed Tables):** Take the exact same data but compress it into fewer, broader rows (e.g., grouping that same poverty data into just 3 wide age buckets). 
-  * *If a `B` table dataset feels overwhelming, change the first letter to a `C` for a cleaner overview!*
+
+- **`B` (Base Tables):** Provide micro-detailed row breakdowns (e.g., tracking poverty across 20+ micro-age brackets).
+- **`C` (Collapsed Tables):** Take the exact same data but compress it into fewer, broader rows (e.g., grouping that same poverty data into just 3 wide age buckets).
+  - *If a `B` table dataset feels overwhelming, change the first letter to a `C` for a cleaner overview!*
 
 ```{r}
 # This example shows how to get population estimates by county in Connecticut, calculate the percentage of the state population for each county, and then build a nice table to display the results. You can adapt this pattern to other geographies, variables, and states as needed.
@@ -693,7 +663,6 @@ build_county_pop_table()
 build_county_pop_table()
 ```
 
-
 # Wrapping it all up – From curiosity to pipeline
 
 ## 1. Common skeleton
@@ -708,15 +677,15 @@ build_county_pop_table()
 
 ## 2. Reproducibility checklist
 
-☐ Save raw response (or hash) 
+☐ Save raw response (or hash)
 
-☐ Log URL/params + timestamp + API version 
+☐ Log URL/params + timestamp + API version
 
-☐ Pin package versions / environment info 
+☐ Pin package versions / environment info
 
-☐ Respect robots.txt / rate limits 
+☐ Respect robots.txt / rate limits
 
-☐ Secure tokens (env vars or vault) 
+☐ Secure tokens (env vars or vault)
 
 ## 3. Where to go next
 
@@ -735,10 +704,7 @@ build_county_pop_table()
 
 ## What is web scraping?
 
-Web scraping is the process of programmatically extracting data from websites. It’s often used when:
-- No API is available
-- The API is too limited or slow for your needs
-- You want to capture data that’s only presented in HTML format
+Web scraping is the process of programmatically extracting data from websites. It’s often used when: - No API is available - The API is too limited or slow for your needs - You want to capture data that’s only presented in HTML format
 
 ## Today we will be scrapping a Wikipedia page to extract gloabal COVID cases and deaths by country
 
@@ -754,9 +720,9 @@ Web scraping is the process of programmatically extracting data from websites. I
 - The table itself is a `<table>` element with class `wikitable sortable`.
 - when you find the right element, right click on the `<table>` tag in DevTools → Copy → Copy Full XPath
 
-**Here is he xpath example for the table** 
+**Here is he xpath example for the table**
 
-/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table
+/html/body/div\[3\]/div/div\[3\]/main/div\[3\]/div\[3\]/div\[2\]/div\[24\]/table
 
 ### STEP 3 – Use R to read the HTML and extract the table
 
@@ -773,7 +739,7 @@ covid_tbl <- page %>%
   clean_names() %>% 
   select(-x1)
 
-head(covid_tbl)
+head(covid_tbl, 20)
 ```
 
 ## This works, but it’s not very reusable. If we want to scrape another table on the same page, we’d have to copy-paste and change the XPath again. Let’s make a function to do this more cleanly.
@@ -808,35 +774,29 @@ head(covid_tbl_1)
 head(covid_tbl_2)
 ```
 
-# Wrapping Up 
+# Wrapping Up
 
 ## 1. Key take-aways
 
-- **Same playbook, different sites**  
-  No matter where the data lives, the steps are: find the URL, send a
-  request, get the reply, turn it into a table, and write down what you did.
+- **Same playbook, different sites**\
+  No matter where the data lives, the steps are: find the URL, send a request, get the reply, turn it into a table, and write down what you did.
 
-- **Keep it reproducible**  
-  Save the URL (plus any filters), note the date you downloaded, and jot down
-  which R packages you used.  That’s enough for someone else (or future-you)
-  to rerun the pull.
+- **Keep it reproducible**\
+  Save the URL (plus any filters), note the date you downloaded, and jot down which R packages you used. That’s enough for someone else (or future-you) to rerun the pull.
 
-- **Respect the ecosystem**  
-   Use an official API when one exists, slow down big jobs, and read the “terms
-  of use.”  Scraping is the last resort.
+- **Respect the ecosystem**\
+  Use an official API when one exists, slow down big jobs, and read the “terms of use.” Scraping is the last resort.
 
-- **Automate early**  
-   Wrap your code in a function and schedule it—then fresh data is only a click
-  (or a cron job) away.
+- **Automate early**\
+  Wrap your code in a function and schedule it—then fresh data is only a click (or a cron job) away.
 
-- **Stay curious**  
-  New health data sources pop up all the time.  Once you know the basics,
-  trying a new one is mostly copy-paste.
+- **Stay curious**\
+  New health data sources pop up all the time. Once you know the basics, trying a new one is mostly copy-paste.
 
 ## 2. Suggested next steps
 
 | Level-up | Action |
-|----------|-----------------|
+|---------------------------|---------------------------------------------|
 | **Async / parallel pulls** | Try `furrr` or `curl_multi()` for paginated APIs with thousands of calls. |
 | **Secrets management** | Store tokens in `.Renviron`, `keyring`, or a cloud vault; never hard-code in scripts. |
 | **Robust scraping** | Explore `chromote`, `RSelenium`, or `playwright` for JavaScript-heavy sites. |
@@ -845,8 +805,8 @@ head(covid_tbl_2)
 
 ## 3. Handy links
 
-| Link     |   Why you’d use it    |
-|----------|-----------------------|
+| Link | Why you’d use it |
+|----------------------|--------------------------------------------------|
 | **CT Open Data Portal** — <https://data.ct.gov> | State-level health & policy datasets in a Socrata wrapper (supports `$select`, `$where`, etc.). |
 | **Census Developer Portal** — <https://www.census.gov/data/developers/data-sets.html> | Official docs, variable lists, and examples for ACS, Decennial, Economic Census, and more. |
 | **NCHS Vital Statistics** — <https://www.cdc.gov/nchs/data_access/vitalstatsonline.htm> | Birth/death micro-data, natality, mortality, and compressed mortality files (often FTP + API hybrids). |
@@ -862,4 +822,4 @@ head(covid_tbl_2)
 
 ## 4. Thank you & stay connected!
 
-Please email me at maximilian.wegener@yale.edu if you have any questions.
+Please email me at maximilian.wegener\@yale.edu if you have any questions.

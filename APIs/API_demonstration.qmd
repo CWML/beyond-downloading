@@ -1,0 +1,779 @@
+---
+title: "API Demonstrations in R"
+format: html
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# API Demonstrations
+
+This document demonstrates several approaches for accessing data through APIs using R.
+
+The examples use different methods, including R packages that provide API access, direct HTTP requests with `httr` and `httr2`, JSON parsing, API endpoint discovery, and APIs that require authentication.
+
+------------------------------------------------------------------------
+
+## 0. Setup
+
+### Reference: The Data Journey
+
+Every API example in this document follows the same data journey:
+
+```         
+API Request ──► JSON / XML Response ──► Parse & Flatten in R ──► Data Frame (Tibble) ──► (Optional) Save as CSV
+```
+
+| Stage | What happens |
+|------------------------------------|------------------------------------|
+| **API Request** | R sends an HTTP GET (or POST) to an endpoint URL with query parameters |
+| **JSON / XML Response** | The server returns a hierarchical, nested key-value structure optimized for web transit |
+| **Parse & Flatten** | `fromJSON()` or `resp_body_json()` converts the nested structure into rows and columns |
+| **Data Frame / Tibble** | The result is a standard R table you can immediately use with `dplyr` or `ggplot2` |
+| **Save as CSV** | `write_csv()` exports a flat, plain-text file you can open in Excel or share with collaborators |
+
+### Reference: The Research Data Workflow
+
+Each example also follows a six-step research workflow:
+
+| Step | What it means |
+|------------------------------------|------------------------------------|
+| **1. Identify source + documentation** | Find the API docs before writing any code; understand endpoints, parameters, and rate limits |
+| **2. Draft a query** | Define fields, filters, and time range explicitly as named parameters |
+| **3. Request data** | Send the request; respect rate limits; use timeouts and error handling |
+| **4. Validate + clean** | Check dimensions, types, and missing values before using the data |
+| **5. Save raw + processed data** | Save the raw API response immediately; save the cleaned version separately |
+| **6. Record provenance** | Document the URL, parameters, date pulled, and API version |
+
+### Reference: Key API Terminology
+
+| Term | Definition |
+|------------------------------------|------------------------------------|
+| Endpoint | The URL for a specific resource (e.g., `/studies`, `/drug/event.json`) |
+| Method | `GET` retrieves data; `POST` submits a query or creates a record |
+| Parameters | Filters appended to the URL (e.g., `?year=2023&state=CT`) |
+| Auth | API key, bearer token, or OAuth credential required by some APIs |
+| Rate limits | Maximum requests allowed per second or per day |
+| Pagination | `page`, `offset`, or `cursor` parameters for retrieving large result sets in chunks |
+| Response | JSON or XML returned by the server, parsed into a table in R |
+
+### Reference: `httr` vs `httr2`
+
+Both packages send HTTP requests and handle responses. They differ in style:
+
+|   | `httr` | `httr2` |
+|------------------------|------------------------|------------------------|
+| **Style** | Single-function call | Pipe-based, build then send |
+| **Request** | `GET(url, query = list(...))` | `request(url) \|> req_url_query(...) \|> req_perform()` |
+| **Extract** | `content(resp, as = "text")` | `resp_body_string()` or `resp_body_json()` |
+| **Error check** | `stop_for_status(resp)` | `req_error()` or automatic |
+| **Rate limiting** | Manual `Sys.sleep()` | `req_throttle()` built in |
+| **Pagination** | Manual loop | `req_perform_iterative()` built in |
+| **Status** | Older; widely used | Current recommended approach |
+
+------------------------------------------------------------------------
+
+### Install Required Packages
+
+Run this chunk once to install all packages used in this document. Set `eval: false` after the first run to avoid reinstalling on every render.
+
+```{r}
+#| eval: false
+
+# NHANES data access
+install.packages("nhanesA")
+
+# Data manipulation and piping
+install.packages("tidyverse")  # includes dplyr, tibble, and the pipe operator
+
+# HTTP requests (older, widely used interface)
+install.packages("httr")
+
+# HTTP requests (modern, pipe-friendly interface)
+install.packages("httr2")
+
+# JSON parsing
+install.packages("jsonlite")
+
+# Census / ACS data access
+install.packages("tidycensus")
+
+# Table formatting
+install.packages("flextable")
+
+# Number formatting (e.g., comma-separated values)
+install.packages("scales")
+```
+
+### Load Required Packages
+
+```{r}
+# NHANES survey data — provides nhanes() to pull NHANES modules by cycle code
+library(nhanesA)
+
+# Core data manipulation: dplyr (wrangling), tibble (modern data frames),
+# tidyr (reshaping), and the pipe operator (%>%)
+library(tidyverse)
+
+# httr — makes HTTP GET/POST requests; used for ClinicalTrials.gov and OpenFDA
+library(httr)
+
+# httr2 — modern, pipe-friendly HTTP client; used for PubMed and Socrata APIs
+library(httr2)
+
+# jsonlite — parses JSON strings returned by APIs into R data frames/lists
+library(jsonlite)
+
+# tidycensus — wraps the U.S. Census Bureau API (ACS, Decennial); handles
+# geography, variable lookup, and API key management
+library(tidycensus)
+
+# flextable — builds formatted, publication-ready tables in HTML/Word output
+library(flextable)
+
+# scales — formats numbers (e.g., comma() for thousands separators,
+# percent() for percentage strings)
+library(scales)
+```
+
+------------------------------------------------------------------------
+
+## 1. NHANES R Package — Survey Data Access
+
+### Documentation
+
+- Package: <https://cran.r-project.org/package=nhanesA>
+- Data dictionary search: <https://wwwn.cdc.gov/nchs/nhanes/>
+
+### Use cases
+
+- Quick access to NHANES data
+- Access the most recent survey cycles without manual file downloads
+- Merge datasets across modules using participant ID (`SEQN`)
+
+NHANES organizes data into separate modules, including demographics, laboratories, examinations, and questionnaires. These modules can be linked using the participant ID (`SEQN`).
+
+### Query demographic and body measurement datasets
+
+```{r}
+# Pull the NHANES demographics module for the 2021–2023 survey cycle.
+# The cycle suffix "L" identifies the 2021–2023 data release.
+nhanes_demo <- nhanes("DEMO_L")
+
+# Pull the body measurements (BMX) module for the same cycle.
+# This contains height, weight, BMI, and related physical measurements.
+nhanes_bmx <- nhanes("BMX_L")
+```
+
+The syntax changes across APIs, but the overall research workflow is remarkably similar.
+
+### Join datasets using the participant ID
+
+Datasets can be merged using `SEQN` to create an analysis-ready table.
+
+A data dictionary is important for understanding variable names and coding. For example, `RIAGENDR` is coded as 1 for male and 2 for female.
+
+```{r}
+nhanes_data <- nhanes_demo %>%
+  # Join the body measurements module to the demographics module on the
+  # shared participant ID (SEQN). left_join keeps all demographic rows
+  # even if a BMX record is missing for that participant.
+  left_join(nhanes_bmx, by = "SEQN") %>%
+  # Retain only the four variables needed for this example:
+  # SEQN = participant ID, RIDAGEYR = age in years,
+  # RIAGENDR = sex (1 = Male, 2 = Female), BMXBMI = body mass index
+  select(SEQN, RIDAGEYR, RIAGENDR, BMXBMI)
+
+# Preview the first six rows to verify the join and variable selection
+head(nhanes_data)
+```
+
+------------------------------------------------------------------------
+
+## 2. PubMed — NCBI E-utilities
+
+### Documentation
+
+- E-utilities overview: <https://www.ncbi.nlm.nih.gov/books/NBK25497/>
+- e-search endpoint: <https://www.ncbi.nlm.nih.gov/books/NBK25499/>
+- Usage guidelines: 10 requests/second with an API key; 3/second without
+
+### Use cases
+
+- Reproducible literature searches
+- Retrieve PMIDs and basic citation metadata
+- Build screening datasets
+
+NCBI requests should follow usage guidelines and include reasonable request pacing for large retrieval jobs.
+
+### How this example fits the workflows
+
+| Workflow concept | This example |
+|------------------------------------|------------------------------------|
+| Endpoint | `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi` |
+| Method | GET |
+| Parameters | `db`, `term` (MeSH + date filter), `retmode`, `retmax` |
+| Auth | None required for low-volume use |
+| Rate limit | 3 requests/second without key; 10/second with key |
+| Pagination | `retstart` + `retmax` for batching |
+| Response | JSON → parsed to list → PMIDs extracted to tibble |
+| Package | `httr2` (pipe-based: build → configure → send → extract) |
+
+## What this code does: Search PubMed and retrieve article IDs
+
+The goal is simple: **ask PubMed "give me IDs for up to 20 asthma articles from 2023" and turn the answer into an R table.**
+
+### Search PubMed
+
+```{r}
+library(httr2)
+
+# Step 1 — Define where to send the request
+# Base URL for the NCBI E-utilities esearch endpoint,
+# which returns a list of matching PubMed IDs (PMIDs)
+base <- "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+
+#Step 2 — Define what you are asking for
+# Define the search parameters:
+# db       = target database (pubmed)
+# term     = MeSH-tagged search term filtered to 2023 publications
+# retmode  = return format (json)
+# retmax   = maximum number of PMIDs to return
+query <- list(
+  db = "pubmed",
+  term = "asthma[MeSH Terms] AND 2023[pdat]",
+  retmode = "json",
+  retmax = 20
+)
+
+# Step 3 — Build and send the request
+# Build and send the HTTP GET request, appending the query parameters to the URL
+resp <- request(base) |>      # Creates a request object pointed at the endpoint URL — nothing is sent yet
+  req_url_query(!!!query) |>  # splice the named list into individual URL params
+  req_perform()               # Actually sends the GET request over the internet and returns the server's response
+
+# Step 4 — Extract the response body - JSON
+# Extract the raw response body as a character string
+txt <- resp |>
+  resp_body_string()
+
+# Step 5 — Parse and Flatten the JSON into R
+# Parse the JSON string into a nested R list
+dat <- fromJSON(txt)
+
+# Step 6 — Navigate to the IDs
+
+# The parsed list has a specific structure. You drill into it like folders:
+# dat
+# └── $esearchresult
+#       └── $idlist ← this is the vector of PubMed IDs
+
+pmids <- dat$esearchresult$idlist
+
+# 7 - Display the PMIDs as a tidy one-column tibble
+tibble(pmid = pmids)
+```
+
+------------------------------------------------------------------------
+
+## 3. ClinicalTrials.gov — Trial Registry Metadata
+
+### Documentation
+
+- API v2 reference: <https://clinicaltrials.gov/data-api/api>
+- Field definitions: <https://clinicaltrials.gov/data-api/about-api/study-data-structure>
+
+### Use cases
+
+- Find trials by condition, intervention, or location
+- Compare outcomes reporting patterns
+- Conduct sponsor or phase landscape scans
+
+### How this example fits the workflows
+
+| Workflow concept | This example |
+|------------------------------------|------------------------------------|
+| Endpoint | `https://clinicaltrials.gov/api/v2/studies` |
+| Method | GET |
+| Parameters | `query.term` (free text), `pageSize` |
+| Auth | None |
+| Rate limit | Reasonable use; no published hard limit |
+| Pagination | `pageToken` returned in response for next page |
+| Response | JSON → flatten → tibble |
+| Package | `httr` (single-call style: `GET()` → `content()` → `fromJSON()`) |
+
+### What this code does: Search ClinicalTrials.gov and retrieve study records
+
+The goal is simple: **ask ClinicalTrials.gov "give me 10 studies about diabetes" and turn the answer into an R table.**
+
+### Query ClinicalTrials.gov
+
+```{r}
+
+# Step 1 — Define where to send the request
+# Base URL for the ClinicalTrials.gov v2 REST API studies endpoint
+url <- "https://clinicaltrials.gov/api/v2/studies"
+
+# Step 2 — Define what you are asking for
+# Query parameters:
+# query.term = free-text search term (diabetes)
+# pageSize   = number of study records to return per page
+params <- list(
+  `query.term` = "diabetes",
+  pageSize = 10
+)
+
+# Step 3 — Build and send the request
+# Send a GET request with a 30-second timeout to avoid hanging on slow responses
+resp <- GET(url, query = params, timeout(30))
+
+# Raise an error if the server returned an HTTP error status (4xx or 5xx)
+stop_for_status(resp)
+
+# Step 4 — Extract the response body - JSON
+# Extract the response body as a UTF-8 text string
+data_txt <- content(resp, as = "text", encoding = "UTF-8")
+
+# Step 5 — Parse and Flatten the JSON into R
+# Parse the JSON text into a nested R list; flatten = TRUE collapses
+# nested lists into dot-separated column names for easier data-frame use
+data <- fromJSON(data_txt, flatten = TRUE)
+
+# Step 6 — Navigate to the studies
+
+# The parsed list has a specific structure. You drill into it like folders:
+# data
+#  └── $studies  ← this is the array of study records
+
+# Isolate the studies array from the parsed response
+studies <- data$studies
+
+# Step 7 — Display as a tidy tibble
+# Convert the list to a tibble for easier inspection and downstream wrangling
+studies_tbl <- as_tibble(studies)
+
+# Print a compact overview of all columns and their types
+str(studies_tbl)
+```
+
+------------------------------------------------------------------------
+
+## 4. OpenFDA — Adverse Events
+
+### Documentation
+
+- API overview: <https://open.fda.gov/apis/>
+- Drug event endpoint: <https://open.fda.gov/apis/drug/event/>
+- No API key required for low-volume use (40 requests/minute; 1,000/day)
+
+### Use cases
+
+- Pharmacovigilance exploration
+- Counts over time, stratified by drug or product fields
+- Teaching filtering and pagination
+
+### How this example fits the workflows
+
+| Workflow concept | This example                                |
+|------------------|---------------------------------------------|
+| Endpoint         | `https://api.fda.gov/drug/event.json`       |
+| Method           | GET                                         |
+| Parameters       | `search` (field-specific filter), `limit`   |
+| Auth             | None for low-volume use                     |
+| Rate limit       | 40 requests/minute; 1,000/day without key   |
+| Pagination       | `skip` + `limit` for paging through results |
+| Response         | JSON → flatten → tibble                     |
+| Package          | `httr`                                      |
+
+### What this code does: Search OpenFDA and retrieve adverse event reports
+
+The goal is simple: **ask OpenFDA "give me 5 adverse event reports mentioning metformin" and turn the answer into an R table.**
+
+### Query OpenFDA
+
+```{r}
+# Step 1 — Define where to send the request
+# Base URL for the FDA adverse drug event (FAERS) endpoint
+base <- "https://api.fda.gov/drug/event.json"
+
+# Step 2 — Define what you are asking for
+# Query parameters:
+# search = filter to reports mentioning metformin as the medicinal product
+# limit  = return only 5 records for this demonstration
+params <- list(
+  search = 'patient.drug.medicinalproduct:"metformin"',
+  limit = 5
+)
+
+# Step 3 — Build and send the request
+# Send the GET request with a 30-second timeout
+resp <- GET(base, query = params, timeout(30))
+
+# Raise an error if the server returned an HTTP error status (4xx or 5xx)
+stop_for_status(resp)
+
+# Step 4 — Extract the response body - JSON
+# Decode the response body to a UTF-8 text string
+txt <- content(resp, as = "text", encoding = "UTF-8")
+
+# Step 5 — Parse and Flatten the JSON into R
+# Parse the JSON; flatten = TRUE converts nested fields to dot-notation columns
+j <- fromJSON(txt, flatten = TRUE)
+
+# Step 6 — Navigate to the results
+# The parsed list has a specific structure. You drill into it like folders:
+#  j 
+#  └── $results  ← this is the array of adverse event reports
+fda_df <- j$results %>%
+  as_tibble()
+
+# Step 7 — Display as a tidy tibble
+# Uncomment the line below to print all rows and columns for inspection
+# print(fda_df, n = 5, width = Inf)
+```
+
+------------------------------------------------------------------------
+
+## 5. CDC Open Data — Socrata API
+
+Many government open-data portals use Socrata APIs. These APIs support SQL-like query parameters such as `$select`, `$where`, and `$limit`.
+
+Socrata API documentation: <https://dev.socrata.com/docs/endpoints>
+
+### Use cases
+
+- Quick access to many public datasets
+- Teach `select`, `where`, and `limit` query patterns
+- Discover datasets through an API catalog
+
+### How this example fits the workflows
+
+| Workflow concept | This example |
+|------------------------------------|------------------------------------|
+| Endpoint | Discovery catalog + individual dataset endpoint |
+| Method | GET |
+| Parameters | `q`, `domains` (catalog); `$limit` (SODA) |
+| Auth | None for public datasets |
+| Rate limit | Throttled for unauthenticated requests; app token recommended for bulk use |
+| Pagination | `$limit` + `$offset` |
+| Response | JSON → flatten → tibble |
+| Package | `httr2` |
+
+### What this code does: Find a CDC dataset and retrieve records
+
+The goal is simple: **ask the Socrata catalog "find me a CDC dataset about COVID-19 hospitalization", then pull 100 records from it and turn the answer into an R table.**
+
+### Find a CDC dataset endpoint
+
+The following example searches the Socrata catalog for a dataset related to COVID-19 hospitalization surveillance.
+
+The `q` parameter and domain filter can be changed to search for other datasets.
+
+```{r}
+# Step 1 — Define where to send the request
+# Socrata discovery catalog endpoint
+base <- "https://api.us.socrata.com/api/catalog/v1"
+
+# Step 2 — Define what you are asking for
+# Query parameters:
+# q       = free-text search term
+# domains = restrict results to the CDC data portal
+query <- list(
+  q       = "COVID-19 hospitalization",
+  domains = "data.cdc.gov"
+)
+
+# Step 3 — Build and send the request
+catalog <- request(base) |>
+  req_url_query(
+    q       = query$q,
+    domains = query$domains
+  ) |>
+  req_perform() |>   # send the request
+  resp_body_json()   # parse the JSON response body into an R list
+
+# Step 4 — Extract the response body - JSON
+# Extract the top result from the catalog response
+top_result <- catalog$results[[1]]
+
+# Step 5 — Navigate to the dataset identifier
+# The parsed list has a specific structure. You drill into it like folders:
+# catalog
+#  └── $results
+#        └── [[1]]
+#              └── $resource
+#                    └── $id  ← the 4x4 dataset identifier
+top_result$resource$id
+```
+
+## What this code does: Pull records from a Socrata dataset endpoint
+
+The goal is simple: **take the endpoint URL found in the previous step, ask it for 100 records, and turn the answer into an R table.**
+
+### Request data from a Socrata endpoint
+
+Replace the dataset endpoint with the endpoint identified in the previous step.
+**Many Socrata datasets support SODA queries through parameters such as `$select`, `$where`, and `$limit`.**
+
+```{r}
+# Step 1 — Define where to send the request
+# Use the dataset identifier from the catalog search above to construct the endpoint
+endpoint <- "https://data.cdc.gov/resource/akn2-qxic.json"
+
+# Step 2 — Define what you are asking for
+# $limit = number of records to return (SODA pagination parameter)
+query <- list(`$limit` = 100)
+
+# Step 3 — Build and send the request
+resp <- request(endpoint) |>
+  req_url_query(`$limit` = query$`$limit`) |>
+  req_perform()
+
+# Step 4 — Extract the response body - JSON
+# Step 5 — Parse and Flatten the JSON into R
+resp_dat <- fromJSON(
+  resp_body_string(resp),  # extract response as a character string first
+  flatten = TRUE           # collapse nested JSON objects into dot-notation columns
+)
+
+# Step 6 — Navigate to the results
+# resp_dat is already a flat data frame after fromJSON with flatten = TRUE
+
+# Step 7 — Display as a tidy tibble
+as_tibble(resp_dat)
+```
+
+------------------------------------------------------------------------
+
+## 6. Census API — ACS Data
+
+### Why Census/ACS data matter in health research
+
+Census and American Community Survey (ACS) data can provide population context for health research, including:
+
+- Denominators for calculating rates
+- Social determinants proxies such as income, education, housing, and internet access
+- Fine-grained geographies such as tract, ZIP, county, ZCTA, and PUMA
+- Annual or 5-year series for trend analysis
+
+Common outputs include:
+
+- Tract, county, and state estimates
+- ACS variables and multi-year estimates
+
+### Census API key
+
+The Census API provides a free API key.
+
+Request a key:
+
+<https://api.census.gov/data/key_signup.html>
+
+Store the key safely, for example in `~/.Renviron`:
+
+``` text
+CENSUS_API_KEY=YOUR_KEY_HERE
+```
+
+### Store your Census key
+
+The following opens the `.Renviron` file so the key can be added.
+
+```{r}
+# Open the user-level .Renviron file in the RStudio editor.
+# Add the line: CENSUS_API_KEY=YOUR_KEY_HERE
+# Save and restart R for the variable to take effect.
+file.edit("~/.Renviron")
+```
+
+### Load the Census API key
+
+```{r}
+# Read the key from the CENSUS_API_KEY environment variable set in .Renviron.
+# install = TRUE writes the key to .Renviron permanently so it persists
+# across R sessions. overwrite = TRUE replaces any previously stored key.
+census_api_key(
+  Sys.getenv("CENSUS_API_KEY"),
+  install = TRUE,
+  overwrite = TRUE
+)
+```
+
+### Test the key with a simple request
+
+This example retrieves a basic population estimate for all states in 2023.
+
+```{r}
+# Retrieve ACS 5-year total population estimates (variable B01001_001)
+# for every U.S. state using the 2023 ACS release.
+# This is a quick smoke-test to confirm the API key is working correctly.
+get_acs(
+  geography = "state",      # geographic level: one row per state
+  variables = "B01001_001", # total population estimate
+  year = 2023               # most recent ACS 5-year release available
+)
+```
+
+------------------------------------------------------------------------
+
+### Census API: Geographies and ACS Variables
+
+#### Anatomy of an ACS variable code
+
+For example:
+
+**`B01001_001`**
+
+- `B` or `C` = table type
+- `01` = broad subject code
+- `001` = table sequence number
+- `_001` = specific line number within the table
+
+Line `_001` is commonly the total for the table.
+
+#### ACS table subject prefixes
+
+| Prefix    | Subject Category     | Example Metrics                           |
+|:-----------------------|:-----------------------|:-----------------------|
+| `01`–`07` | Core Demographics    | Age, sex, race, ancestry, place of birth  |
+| `08`      | Commuting & Transit  | Remote work, public transit, travel times |
+| `11`–`13` | Households & Family  | Marital status, family size, fertility    |
+| `15`–`16` | Education & Language | Educational attainment, languages spoken  |
+| `17`–`23` | Economics & Finance  | Income, poverty, employment               |
+| `24`      | Occupations          | Employment fields                         |
+| `25`      | Housing & Living     | Rent, home values, utilities, vehicles    |
+
+A useful resource for searching Census tables is:
+
+<https://censusreporter.org>
+
+#### Common ACS tables for student projects
+
+- `B19013` — Median Household Income
+- `B17001` — Poverty Status by Sex and Age
+- `B15003` — Educational Attainment
+- `B25077` — Median Value of Owner-Occupied Housing Units
+- `B28002` — Household Internet Access
+- `B25044` — Vehicles Available per Household
+
+#### B Tables vs. C Tables
+
+- **B tables (Base Tables):** Provide more detailed row-level breakdowns.
+- **C tables (Collapsed Tables):** Provide broader, collapsed categories.
+
+If a B table contains more detail than needed, the corresponding C table can sometimes provide a simpler overview.
+
+------------------------------------------------------------------------
+
+### Census API Example: County Population in Connecticut
+
+#### How this example fits the workflows
+
+| Workflow concept | This example                                        |
+|------------------|-----------------------------------------------------|
+| Endpoint         | Census Bureau ACS API (wrapped by `tidycensus`)     |
+| Method           | GET (handled internally by `tidycensus`)            |
+| Parameters       | `geography`, `variables`, `state`, `year`, `survey` |
+| Auth             | Census API key stored in `.Renviron`                |
+| Rate limit       | Generous; key required for sustained use            |
+| Pagination       | Handled automatically by `tidycensus`               |
+| Response         | Parsed directly to tibble by `tidycensus`           |
+| Package          | `tidycensus`                                        |
+
+This example retrieves population estimates by county in Connecticut and calculates each county's percentage of the state population.
+
+```{r}
+# Step 1 — Authenticate
+# Re-register the Census API key for this session (required if the environment
+# variable was set after the initial R session start)
+census_api_key(Sys.getenv("CENSUS_API_KEY"))
+
+# Step 2 — Define what you are asking for and send the request
+# tidycensus handles the request, response parsing, and tibble conversion internally
+# geography = geographic level: one row per county
+# variables = B01001_001 is the total population estimate
+# state     = filter to Connecticut counties only
+# year      = ACS release year
+# survey    = acs5 uses the 5-year estimates for greater reliability
+county_pop <- get_acs(
+  geography = "county",
+  variables = "B01001_001",
+  state     = "CT",
+  year      = 2023,
+  survey    = "acs5"
+)
+
+# Step 3 — Clean and calculate
+county_pop <- county_pop %>%
+  mutate(
+    # Strip the boilerplate suffix from county names for cleaner display
+    NAME         = gsub(" County, Connecticut", "", NAME),
+    # Calculate each county's share of the Connecticut state total
+    pct_of_state = (estimate / sum(estimate)) * 100
+  )
+
+# Step 4 — Display as a tidy tibble
+county_pop
+```
+
+### Format the county population table
+
+```{r}
+build_county_pop_table <- function() {
+  county_pop %>%
+    # Sort from most to least populous county
+    arrange(desc(estimate)) %>%
+    # Rename columns to human-readable labels for the final table
+    select(
+      County = NAME,
+      Population = estimate,
+      `% of State` = pct_of_state
+    ) %>%
+    mutate(
+      # Format population with comma thousands separators (e.g., 123,456)
+      Population = comma(Population),
+      # Round percentage to one decimal place and append a "%" symbol
+      `% of State` = paste0(round(`% of State`, 1), "%")
+    ) %>%
+    # Initialize a flextable from the tibble
+    flextable() %>%
+    # Explicitly set header labels (redundant here but documents intent)
+    set_header_labels(
+      County = "County",
+      Population = "Population",
+      `% of State` = "% of State"
+    ) %>%
+    theme_vanilla() %>%          # apply a clean, minimal table theme
+    bold(part = "header") %>%    # bold the header row text
+    bg(part = "header", bg = "white") %>%   # white header background
+    color(part = "header", color = "black") %>%  # black header text
+    # Apply a light gray background to every even-numbered row (zebra striping)
+    bg(i = seq(2, nrow(county_pop), 2), bg = "#F2F2F2") %>%
+    # Right-align numeric columns in both the header and body
+    align(
+      j = c("Population", "% of State"),
+      align = "right",
+      part = "all"
+    ) %>%
+    # Make the table fill the full page width and auto-size column widths
+    set_table_properties(
+      width = 1,
+      layout = "autofit"
+    ) %>%
+    # Add a data source note below the table
+    add_footer_lines(
+      "Source: U.S. Census Bureau, ACS 5-Year Estimates 2023. Table B01001."
+    )
+}
+
+# Render the formatted county population table
+build_county_pop_table()
+```
+
+The function can be called again whenever the formatted table is needed.
+
+```{r}
+# Re-render the same formatted table (e.g., after additional narrative text)
+build_county_pop_table()
+```
