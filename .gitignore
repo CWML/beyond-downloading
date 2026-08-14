@@ -29,3 +29,14 @@ data/raw/
 *.zip
 notes/             # Ignores 'notes' folder anywhere in project
 OLD/               # Ignores 'OLD' folder anywhere in project
+
+
+# Quarto internal cache
+/.quarto/
+
+# Quarto rendered output dependency folders
+*_files/
+
+# Private notes & archives
+notes/
+OLD/
