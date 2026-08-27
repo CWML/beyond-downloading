@@ -117,3 +117,19 @@ Dataset Dims    : {df_cleaned.shape[0]} rows x {df_cleaned.shape[1]} cols
 
 # Jupyter execution call
 await scrape_fluview()
+
+
+# Pass compression=None so Pandas treats it as a plain CSV text file
+cdc_fluview_data = pd.read_csv(
+    "web_scraping/downloads/cdc_fluview_data.zip",
+    skiprows=1,
+    compression=None
+)
+
+# Clean column headers
+cdc_fluview_data.columns = (
+    cdc_fluview_data.columns.str.strip().str.lower().str.replace(" ", "_")
+)
+
+# View preview
+cdc_fluview_data.head()
