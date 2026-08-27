@@ -135,74 +135,73 @@ library(flextable)
 
 ```{r}
 library(rvest)
+library(xml2)
 library(janitor)
 library(dplyr)
-library(readr)
 
 # ==============================================================================
 # Step 1: Identify source + inspect DOM
 # Source: Wikipedia COVID-19 pandemic page
-# Rule Check: Review robots.txt at https://en.wikipedia.org/wiki/robots.txt
-# Target: Main country statistics table inside page content wrapper
+# Target: Primary "Cases by country and territory" table
 # ==============================================================================
 url <- "https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory"
 
 
 # ==============================================================================
 # Step 2: Draft selector strategy
-# Primary: Absolute XPath targeting the specific <table> node
-# Alternative: Relative CSS class selector ("table.wikitable.sortable")
+# Permanent XPath: Finds the heading ID 'Cases_by_country_and_territory', 
+# steps up to its container, and selects the adjacent <table> node.
 # ==============================================================================
-target_xpath <- "/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table"
+target_xpath <- '//*[@id="mwAaI"]/table'
 
 
 # ==============================================================================
 # Step 3: Fetch web page
-# Download raw HTML structure into R memory ONCE
-# Passing standard GET request; avoids making redundant network calls
+# Download entire raw HTML structure of the web page into R memory ONCE
 # ==============================================================================
 page <- read_html(url)
 
 
 # ==============================================================================
 # Step 4: Extract & clean data
-# Target specific node -> parse table -> format headers -> drop index column
+# Target node -> parse HTML table -> format headers -> safely drop index column
 # ==============================================================================
 covid_tbl <- page %>%
-  # Target element node using our selector strategy
-  html_element(xpath = target_xpath) %>% # Alternative: html_element(css = "table.wikitable.sortable")
+  # Target element node using resilient section-anchor XPath
+  html_element(xpath = target_xpath) %>% 
   
-  # Parse <table>, <tr>, <th>, <td> tags; fill missing trailing cells with NA
+  # Convert HTML table into an R data frame, filling missing cells with NA
   html_table(fill = TRUE) %>% 
   
-  # Convert to tibble; handle duplicate column names safely
+  # Convert to tibble, repairing non-unique column names
   as_tibble(.name_repair = "unique") %>% 
   
-  # Standardize column headers to R-friendly snake_case (janitor)
-  clean_names() %>% 
-  
-  # Drop empty leading index column (e.g., x1)
-  select(-x1)
+  # Standardize column headers to clean snake_case
+  clean_names()
+
+# Safely drop empty leading index column if present
+if ("x1" %in% colnames(covid_tbl)) {
+  covid_tbl <- covid_tbl %>% select(-x1)
+}
 
 
 # ==============================================================================
 # Step 5: Save HTML snapshot & processed data
-# Save raw static HTML snapshot for auditability alongside the clean CSV
+# Save raw static HTML snapshot for auditability alongside processed dataset
 # ==============================================================================
-write_html(page, "covid_page_snapshot.html") # Save raw HTML DOM tree
-write_csv(covid_tbl, "covid_cases_cleaned.csv") # Save cleaned data frame
+write_html(page, "covid_page_snapshot.html")
 
 
 # ==============================================================================
 # Step 6: Record provenance
-# Document source metadata, timestamp, and local R execution environment
+# Log metadata, execution timestamp, and dataset dimensions
 # ==============================================================================
 cat(
   "--- DATA PROVENANCE LOG ---",
-  paste("Target URL:", url),
-  paste("XPath Used:", target_xpath),
+  paste("Target URL :", url),
+  paste("XPath Used :", target_xpath),
   paste("Scraped On :", Sys.time()),
-  paste("Rows/Cols  :", nrow(covid_tbl), "rows x", ncol(covid_tbl), "cols"),
+  paste("Dimensions :", nrow(covid_tbl), "rows x", ncol(covid_tbl), "cols"),
   sep = "\n"
 )
 
@@ -214,6 +213,7 @@ head(covid_tbl, 20)
 
 ```{r}
 library(rvest)
+library(xml2)
 library(janitor)
 library(dplyr)
 library(readr)
@@ -230,31 +230,40 @@ url <- "https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory
 # Step 2: Draft selector strategy
 # Define distinct XPaths for each target table node on the page
 # ==============================================================================
-path_cases    <- "/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table"
-path_timeline <- "/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[30]/table"
+# Target the 1st matching table node (Cases table)
+path_cases <- '//*[@id="mwAaI"]/table'
 
-# Define re-usable extraction pipeline function
+# Target the 2nd matching table node (Vaccine/Timeline table)
+path_timeline <- '//*[@id="mwAjg"]/table'
+
+# Define re-usable extraction pipeline function with safety checks
 scrape_by_xpath <- function(html_page, xpath_string) { 
-  html_page %>%
+  tbl <- html_page %>%
     html_element(xpath = xpath_string) %>%          # Target specified table node
-    html_table(fill = TRUE) %>%                       # Parse HTML table (fills empty cells with NA)
-    as_tibble(.name_repair = "unique") %>%            # Convert to tibble with unique column names
-    clean_names() %>%                                 # Standardize column headers to snake_case
-    select(-x1)                                       # Drop empty leading index column
+    html_table(fill = TRUE) %>%                       # Parse HTML table
+    as_tibble(.name_repair = "unique") %>%            # Convert to tibble
+    clean_names()                                     # Standardize column headers
+  
+  # Safely drop empty leading index column if present
+  if ("x1" %in% colnames(tbl)) {
+    tbl <- tbl %>% select(-x1)
+  }
+  
+  return(tbl)
 }
 
 
 # ==============================================================================
 # Step 3: Fetch web page
-# Download raw HTML structure into local R memory ONCE
-# Passing single HTTP GET request prevents redundant network calls across function calls
+# Download entire raw HTML structure into local R memory ONCE
+# Passing single HTTP GET request prevents redundant network calls
 # ==============================================================================
 page <- read_html(url)
 
 
 # ==============================================================================
 # Step 4: Extract & clean data
-# Execute reusable function across stored target XPaths against the single HTML object
+# Execute reusable function across stored target XPaths against cached HTML
 # ==============================================================================
 covid_tbl_1 <- scrape_by_xpath(page, path_cases)
 covid_tbl_2 <- scrape_by_xpath(page, path_timeline)
