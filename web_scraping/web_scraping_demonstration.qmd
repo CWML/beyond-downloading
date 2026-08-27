@@ -1,0 +1,320 @@
+---
+title: "Web Scraping Demonstrations in R"
+format: html
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Web Scraping Demonstrations
+
+This document demonstrates several approaches for extracting structured web data using R.
+
+The examples cover fundamental static scraping techniques using `rvest`, ethical rate-limiting and domain rule parsing with `polite` and `robotstxt`, XPath/CSS element targeting, handling multi-table extractions, and dynamic browser automation using `playwright`.
+
+------------------------------------------------------------------------
+
+## 0. Setup
+
+### Reference: The Web Scraping Data Journey
+
+Every web scraping example in this document follows the same data journey:
+
+Target URL ──► HTML/DOM Response ──► Select & Target Nodes ──► Parse Text/Tables ──► Data Frame (Tibble) ──► Save Snapshot & CSV
+
+| Stage | What happens |
+|:-----------------------------------|:-----------------------------------|
+| **Target URL** | Define the specific web endpoint or directory listing containing the target data |
+| **HTML/DOM Response** | Server returns the raw markup tree parsed by `read_html()` or rendered via `playwright` |
+| **Select & Target Nodes** | `html_element()` or `html_elements()` locate nodes via XPaths or CSS selectors |
+| **Parse Text / Tables** | `html_table()`, `html_text2()`, or `html_attr()` extract structured data into memory |
+| **Data Frame / Tibble** | `clean_names()` and `dplyr` transform raw text into analysis-ready columns |
+| **Save Snapshot & CSV** | `write_html()` preserves the raw audit snapshot; `write_csv()` exports processed data |
+
+------------------------------------------------------------------------
+
+### Reference: The Research Data Workflow (Web Scraping)
+
+Each scraping script in this document follows a six-step research workflow:
+
+| Step | What it means |
+|:-----------------------------------|:-----------------------------------|
+| **1. Identify source + inspect DOM** | Review `robots.txt`, Terms of Service, and target page layout via browser Developer Tools |
+| **2. Draft selector strategy** | Identify unique XPaths (e.g., `/html/body/.../table`) or CSS classes (e.g., `.wikitable`) |
+| **3. Request web page** | Download HTML with `read_html()` or establish an ethical session using `polite::bow()` |
+| **4. Extract + clean** | Parse tabular nodes with `html_table()` and clean column names using `janitor::clean_names()` |
+| **5. Save raw + processed data** | Write static HTML snapshots to disk for auditability; export cleaned tibbles as CSVs |
+| **6. Record provenance** | Document the target URL, extraction selectors, scraping timestamp, and session metadata |
+
+------------------------------------------------------------------------
+
+### Reference: Key Web Scraping Terminology
+
+| Term | Definition |
+|:-----------------------------------|:-----------------------------------|
+| **DOM Tree** | Document Object Model; the hierarchical tree structure representing HTML elements |
+| **CSS Selector** | Pattern used to select elements based on tags, classes (`.class`), or IDs (`#id`) |
+| **XPath** | Language for navigating XML/HTML nodes path-wise (e.g., `//table[contains(@class, 'wikitable')]`) |
+| **User-Agent** | Request header string identifying your scraping session to the web server |
+| **`robots.txt`** | Text file on domain root specifying forbidden paths and crawl delays for web bots |
+| **Static Scraping** | Extracting data embedded directly in raw HTML returned by the initial server request |
+| **Dynamic Scraping** | Automating a browser engine (e.g., Chromium) to render JavaScript and trigger clicks |
+
+------------------------------------------------------------------------
+
+### Reference: Static (`rvest` / `polite`) vs Dynamic (`playwright`)
+
+Both approaches extract web content, but they operate at different levels of execution:
+
+| Feature | `rvest` + `polite` (Static) | `playwright` (Dynamic) |
+|:-----------------------|:-----------------------|:-----------------------|
+| **Execution** | Direct HTTP fetch; parses raw HTML text | Launches full browser (Chromium/Firefox/WebKit) |
+| **JavaScript** | Cannot execute client-side JS | Fully executes single-page applications (SPAs) |
+| **Interactivity** | Single fetch; cannot click or type | Simulates clicks, form inputs, and dropdowns |
+| **Speed & Overhead** | Fast; minimal CPU/memory usage | Resource-intensive; spawns browser process |
+| **`robots.txt`** | Obeyed automatically via `polite::bow()` | Must be verified explicitly (browser bypasses it) |
+| **File Downloads** | Pulls direct file URLs (`href`) | Intercepts dynamic browser download triggers |
+| **Primary Use Case** | Wikipedia, static news, public listings | CDC FluView, interactive portals, complex authentication |
+
+> 💡 **Workshop Tip:** Steps 3 and 4 directly mirror your code: `read_html()` pulls the entire document tree into `page` **once**, and your custom `scrape_by_xpath()` function executes Step 4 across multiple table paths.
+
+------------------------------------------------------------------------
+
+### Install Required Packages
+
+Run this chunk once to install all R packages used in this document. Set `eval: false` after the first run.
+
+```{r}
+#| eval: false
+
+# Core static scraping
+install.packages("rvest")
+
+# Ethical scraping & robots.txt compliance
+install.packages("polite")
+install.packages("robotstxt")
+
+# Data manipulation and cleaning
+install.packages("tidyverse")  # includes dplyr, tibble, readr, purrr
+install.packages("janitor")    # clean_names() and table hygiene
+
+# Browser automation wrapper (R interface for Playwright)
+install.packages("playwrightr")
+
+# Table formatting & reporting
+install.packages("flextable")
+```
+
+### Load Required Packages
+
+```{r}
+# rvest — core Tidyverse tool for downloading HTML, navigating DOM nodes, and parsing tables
+library(rvest)
+
+# polite — ethical scraping wrapper around rvest; checks robots.txt and manages crawl delays
+library(polite)
+
+# robotstxt — programmatic checking of domain crawler permission rules
+library(robotstxt)
+
+# Core data manipulation: dplyr (wrangling), tibble (modern data frames),
+# tidyr (reshaping), stringr (text cleanup), and the pipe operator (%>%)
+library(tidyverse)
+
+# janitor — automates column name cleaning (clean_names) and deduplication
+library(janitor)
+
+# flextable — builds formatted, publication-ready tables in HTML/Quarto output
+library(flextable)
+```
+
+## Static scraping example
+
+### Snippet 1: Single Table Scraping (XPath + CSS Alternative)
+
+```{r}
+library(rvest)
+library(janitor)
+library(dplyr)
+library(readr)
+
+# ==============================================================================
+# Step 1: Identify source + inspect DOM
+# Source: Wikipedia COVID-19 pandemic page
+# Rule Check: Review robots.txt at https://en.wikipedia.org/wiki/robots.txt
+# Target: Main country statistics table inside page content wrapper
+# ==============================================================================
+url <- "https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory"
+
+
+# ==============================================================================
+# Step 2: Draft selector strategy
+# Primary: Absolute XPath targeting the specific <table> node
+# Alternative: Relative CSS class selector ("table.wikitable.sortable")
+# ==============================================================================
+target_xpath <- "/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table"
+
+
+# ==============================================================================
+# Step 3: Fetch web page
+# Download raw HTML structure into R memory ONCE
+# Passing standard GET request; avoids making redundant network calls
+# ==============================================================================
+page <- read_html(url)
+
+
+# ==============================================================================
+# Step 4: Extract & clean data
+# Target specific node -> parse table -> format headers -> drop index column
+# ==============================================================================
+covid_tbl <- page %>%
+  # Target element node using our selector strategy
+  html_element(xpath = target_xpath) %>% # Alternative: html_element(css = "table.wikitable.sortable")
+  
+  # Parse <table>, <tr>, <th>, <td> tags; fill missing trailing cells with NA
+  html_table(fill = TRUE) %>% 
+  
+  # Convert to tibble; handle duplicate column names safely
+  as_tibble(.name_repair = "unique") %>% 
+  
+  # Standardize column headers to R-friendly snake_case (janitor)
+  clean_names() %>% 
+  
+  # Drop empty leading index column (e.g., x1)
+  select(-x1)
+
+
+# ==============================================================================
+# Step 5: Save HTML snapshot & processed data
+# Save raw static HTML snapshot for auditability alongside the clean CSV
+# ==============================================================================
+write_html(page, "covid_page_snapshot.html") # Save raw HTML DOM tree
+write_csv(covid_tbl, "covid_cases_cleaned.csv") # Save cleaned data frame
+
+
+# ==============================================================================
+# Step 6: Record provenance
+# Document source metadata, timestamp, and local R execution environment
+# ==============================================================================
+cat(
+  "--- DATA PROVENANCE LOG ---",
+  paste("Target URL:", url),
+  paste("XPath Used:", target_xpath),
+  paste("Scraped On :", Sys.time()),
+  paste("Rows/Cols  :", nrow(covid_tbl), "rows x", ncol(covid_tbl), "cols"),
+  sep = "\n"
+)
+
+# Preview extracted data
+head(covid_tbl, 20)
+```
+
+### Snippet 2: Scraping Multiple Tables with a Reusable Function
+
+```{r}
+library(rvest)
+library(janitor)
+library(dplyr)
+library(readr)
+
+# ==============================================================================
+# Step 1: Identify source + inspect DOM
+# Source: Wikipedia COVID-19 pandemic page
+# Target: Extracting multiple data tables from a single page layout
+# ==============================================================================
+url <- "https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory"
+
+
+# ==============================================================================
+# Step 2: Draft selector strategy
+# Define distinct XPaths for each target table node on the page
+# ==============================================================================
+path_cases    <- "/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table"
+path_timeline <- "/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[30]/table"
+
+# Define re-usable extraction pipeline function
+scrape_by_xpath <- function(html_page, xpath_string) { 
+  html_page %>%
+    html_element(xpath = xpath_string) %>%          # Target specified table node
+    html_table(fill = TRUE) %>%                       # Parse HTML table (fills empty cells with NA)
+    as_tibble(.name_repair = "unique") %>%            # Convert to tibble with unique column names
+    clean_names() %>%                                 # Standardize column headers to snake_case
+    select(-x1)                                       # Drop empty leading index column
+}
+
+
+# ==============================================================================
+# Step 3: Fetch web page
+# Download raw HTML structure into local R memory ONCE
+# Passing single HTTP GET request prevents redundant network calls across function calls
+# ==============================================================================
+page <- read_html(url)
+
+
+# ==============================================================================
+# Step 4: Extract & clean data
+# Execute reusable function across stored target XPaths against the single HTML object
+# ==============================================================================
+covid_tbl_1 <- scrape_by_xpath(page, path_cases)
+covid_tbl_2 <- scrape_by_xpath(page, path_timeline)
+
+
+# ==============================================================================
+# Step 5: Save HTML snapshot & processed data
+# Save a single static HTML snapshot alongside individual cleaned CSV datasets
+# ==============================================================================
+write_html(page, "covid_full_page_snapshot.html")
+write_csv(covid_tbl_1, "covid_cases_by_country.csv")
+write_csv(covid_tbl_2, "covid_timeline_summary.csv")
+
+
+# ==============================================================================
+# Step 6: Record provenance
+# Log metadata, selectors used, execution timestamp, and dataset dimensions
+# ==============================================================================
+cat(
+  "--- DATA PROVENANCE LOG ---",
+  paste("Target URL   :", url),
+  paste("Scraped On   :", Sys.time()),
+  paste("Table 1 Path :", path_cases),
+  paste("Table 1 Dims :", nrow(covid_tbl_1), "rows x", ncol(covid_tbl_1), "cols"),
+  paste("Table 2 Path :", path_timeline),
+  paste("Table 2 Dims :", nrow(covid_tbl_2), "rows x", ncol(covid_tbl_2), "cols"),
+  sep = "\n"
+)
+
+# Preview extracted tables
+head(covid_tbl_1)
+head(covid_tbl_2)
+```
+
+## Dynamic scraping example using python
+
+See python script file, "scraping_using_playwright.py"
+
+## Using Yale's Clarity platfor to help you generate code
+
+### Writing a static scraping code for R
+
+Write an R script using 
+
+1. Language & Tools: R (`rvest`, `janitor`, `dplyr`)
+2. Scraping Method: Static web scraping
+3. Target URL: `https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory`
+4. Target Selector: `XPath: /html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table`
+5. Goal: Download HTML once, extract table, convert to tibble, clean column names, and drop empty index column.
+
+### Writing a dynamic scraping code for python using playwright
+
+1. Language & Tools: Python playwright
+2. Scraping Method: dynamic web scraping
+3. navigate to URL:
+
+Then describe what you want to do and add the xpaths, for example:
+
+4. click download: /html/body/div[1]/header/div[4]/button[2]
+5. select custom download: //*[@id="downloadDataBody"]/ul[1]/li[2]/div/ul/li/label
+6. click by week: //*[@id="customDownloadPanel"]/li[2]/div[1]/div/li/a
+7. click download data: //*[@id="downloadDataModal"]/div/div/div[3]/button[1]
+

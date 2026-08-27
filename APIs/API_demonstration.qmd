@@ -513,8 +513,7 @@ The goal is simple: **take the endpoint URL found in the previous step, ask it f
 
 ### Request data from a Socrata endpoint
 
-Replace the dataset endpoint with the endpoint identified in the previous step.
-**Many Socrata datasets support SODA queries through parameters such as `$select`, `$where`, and `$limit`.**
+Replace the dataset endpoint with the endpoint identified in the previous step. **Many Socrata datasets support SODA queries through parameters such as `$select`, `$where`, and `$limit`.**
 
 ```{r}
 # Step 1 — Define where to send the request

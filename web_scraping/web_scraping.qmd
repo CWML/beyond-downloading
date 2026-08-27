@@ -1,0 +1,452 @@
+---
+title: "Beyond Downloading: Automating Data Retrieval with Web Scraping" 
+subtitle: "A Practical Guide for Biomedical & Public Health Researchers"
+author: "Max Wegener · Cushing/Whitney Medical Library · maximilian.wegener@yale.edu"
+date: 2026-08-31
+format:
+  revealjs:
+    theme: simple
+    slide-number: true
+    #footer: "Ask → Read → Run → Verify → Iterate"
+    code-line-numbers: false
+    title-slide-attributes:
+      data-background-color: "#1E293B"
+execute:
+  echo: true
+  eval: false
+---
+
+## Welcome + Goals {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+**Today you’ll learn to:**
+
+::: incremental
+- **Determine when web scraping is appropriate** and navigate legal/ethical norms (`robots.txt`, Terms of Service)
+- **Parse static HTML content and tables** using R (`rvest`) and CSS selectors
+- **Handle structured data extraction** across multi-page listings safely and politely
+- **Understand authenticated scraping patterns** without exposing credentials
+:::
+
+::: {style="margin-top: 1em;"}
+:::
+
+------------------------------------------------------------------------
+
+## What is Web Scraping? {.scrollable background-color="#1E293B"}
+
+Programmatically extracting data directly from web pages (HTML/DOM).
+
+::: {.callout-note icon="false"}
+## 💡 When do you need web scraping?
+:::
+
+- **No official API exists** for the target data source
+- **APIs are heavily restricted**, rate-limited, or paywalled
+- **Data is only rendered on public HTML** (e.g., directory listings, public tables, news archives)
+
+------------------------------------------------------------------------
+
+## Why Web Scraping Matters {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+- **Fills data gaps** when official APIs are unavailable
+- **Automates extraction** from multi-page HTML structures at scale
+- **Ensures reproducibility** when paired with raw HTML snapshots, parsing scripts, and timestamps
+- **Requires ethical oversight** (`robots.txt`, Terms of Service, and polite rate-limiting)
+
+------------------------------------------------------------------------
+
+## Agenda {background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+::: incremental
+1.  Web Scraping Fundamentals and Background
+2.  Available APIs
+3.  Live R Demonstrations
+4.  Wrap-up & Resources
+:::
+
+------------------------------------------------------------------------
+
+## Part 1 - Web Scraping Fundamentals and Background {.center background-color="#1E293B"}
+
+------------------------------------------------------------------------
+
+## Ground Rules for Web Scraping & Compliance {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+- Prefer **official APIs** and **bulk downloads** over scraping when available
+- Respect **terms of service**, **`robots.txt`**, and website usage policies
+- Avoid collecting **PII/PHI** or proprietary gated data
+- Use **request delays** (`Sys.sleep()`) and **caching** to avoid server overload
+- Document provenance: *URL, CSS selectors/XPaths, scraping timestamp, and raw HTML snapshot*
+
+::: {.callout-note icon="false"}
+## 💡 What is `robots.txt` & How to Check It?
+
+**`robots.txt`** is a text file hosted at a site's root URL (e.g., `domain.com/robots.txt`) outlining rules for web crawlers:
+
+- **What to look for:**
+  - `User-agent:` Which bots/browsers the rule applies to (`*` = all)
+  - `Disallow:` URL paths off-limits to scrapers (e.g., `/admin/`, `/private/`)
+  - `Crawl-delay:` Recommended wait time between requests (in seconds)
+- **How to check programmatically:**
+  - **R:** `robotstxt::paths_allowed("https://example.com/page")`
+  - **Python:** `urllib.robotparser.RobotFileParser()`
+  - 🤖 **Automated Handling:** Higher-level R packages (like `polite`) and Python tools (`scrapy`) inspect, parse, and enforce `robots.txt` rules and crawl delays **automatically behind the scenes** before making requests!
+:::
+
+------------------------------------------------------------------------
+
+## When Scraping Should Be Used... {background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+::: incremental
+- **No official API or bulk download exists** for the source data
+- **APIs are incomplete or cost-prohibitive** compared to public HTML access
+- **Data is embedded in public web pages** (e.g., directory tables, news archives, regulatory notices)
+- **Capturing visual context or exact web layout** is necessary for research auditability
+:::
+
+# Common Research Workflow {background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+HTTP GET Request ──► Raw HTML Document ──► Parse DOM (`rvest`) ──► Extract Nodes via CSS/XPath ──► Clean & Flatten ──► Data Frame (Table)
+
+::: {.callout-note icon="false"}
+## 💡 What is the DOM?
+
+**DOM (Document Object Model):** The tree-like structure a browser builds when loading an HTML web page. It organizes elements—like tables (`<table>`), headings (`<h1>`), and links (`<a>`)—into nested nodes that R (`rvest`) can search and extract.
+:::
+
+------------------------------------------------------------------------
+
+## Types of DOM Nodes {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+Understanding node types helps when targeting specific content during web scraping:
+
+| Node Type | Description | Scraping Relevance |
+|:-----------------------|:-----------------------|:-----------------------|
+| **Document Node** | Represents the entire document root (`html`) | The starting point loaded by `rvest::read_html()` |
+| **Element Node** | Represents an HTML tag (e.g., `<div>`, `<table>`, `<a>`) | Target nodes matched using CSS selectors or XPath |
+| **Attribute Node** | Represents metadata inside a tag (e.g., `href="..."`, `class="..."`) | Extracted via `html_attr()` (e.g., getting URLs) |
+| **Text Node** | Represents the actual string text inside an element | Extracted via `html_text()` or `html_text2()` |
+| **Comment Node** | Represents internal code comments (`<!-- ... -->`) | Ignored during parsing unless specifically needed |
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-tip icon="false"}
+### 💡 Scraping Rule of Thumb
+
+When web scraping in R: - You locate **Element Nodes** (`html_elements()`) - You pull values from **Text Nodes** (`html_text2()`) or **Attribute Nodes** (`html_attr()`)
+:::
+
+------------------------------------------------------------------------
+
+## Common Data Formats: HTML, Selectors, and Tables {.scrollable background-color="#1E293B" style="padding-left: 1em;"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### The Data Journey
+
+1.  **What the web server sends back:** **HTML Document**
+    - Semi-structured text marked up with tags (`<div>`, `<table>`, `<a>`), classes, and IDs designed for visual browser rendering.
+2.  **How R targets specific content:** **CSS Selectors / XPath**
+    - Search paths passed into `rvest::html_elements()` to pinpoint precise nodes (e.g., extracting links via `href` attributes).
+3.  **What R parses it into:** **Data Frame / Tibble**
+    - Functions like `html_table()` or `html_text2()` extract text nodes and automatically structure them into rows and columns in memory.
+4.  **What you can export to:** **CSV or Database**
+    - A clean, flat table ready for `dplyr` transformations, local saving, or sharing with collaborators.
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+💡 **Bottom Line:** Web systems present **Visual HTML**. Researchers analyze **Clean Tables**. R (`rvest`) acts as the scraper that translates DOM nodes into structured data frames.
+:::
+
+------------------------------------------------------------------------
+
+## Two Main Approaches to Web Scraping {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+| Feature | 1\. Static HTML Scraping (HTTP/DOM) | 2\. Dynamic / Headless Scraping |
+|:-----------------------|:-----------------------|:-----------------------|
+| **How it Works** | Fetches raw HTML directly from server | Launches automated browser engine to execute JavaScript |
+| **Primary Tools (R)** | `rvest`, `httr2`, `xml2` | `chromote`, `RSelenium` |
+| **Speed & Resource Load** | ⚡ Extremely fast; lightweight network requests | 🐢 Slower; high memory & CPU consumption |
+| **Best Used For** | Server-rendered pages, static tables, news articles, directories | Single Page Apps (React/Vue), infinite scroll, interactive dashboards |
+| **Main Limitation** | Cannot render content built dynamically by browser JavaScript | Harder to set up; higher risk of browser crash or detection |
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-tip icon="false"}
+### 📝 Quick Note!
+
+**Static scraping (rvest / BeautifulSoup)**
+
+Only reads static page text. It can't "see" an interactive form or keep track of your browser session easily.
+
+**Dynamic scraping (chromote / Playwright / Selenium)**
+
+Controls an actual browser. It can type your username into an input box, type your password, click "Log In", wait for your authenticated session cookie to register, and then access the private page.
+:::
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-tip icon="false"}
+### 💡 Recommended Research Rule
+
+**Always start with Static HTML Scraping (`rvest`) first.** Only escalate to headless browser tools (`chromote`) if the target content is rendered dynamically via JavaScript after page load.
+:::
+
+------------------------------------------------------------------------
+
+## Core Web Scraping Vocabulary {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+- **URL / Target Page**: The target web address containing the data (`https://example.edu/faculty`)
+- **Request / Navigation**:
+  - *Static:* Sends a direct **HTTP GET** request to fetch static HTML code.
+  - *Dynamic:* Instructs a browser engine to **navigate & render** dynamic JavaScript.
+- **User-Agent**: Request header string identifying your scraper to the host server (e.g., `"Yale Library Research Bot"`).
+- **Politeness Delay**: Inserting intentional pauses (`Sys.sleep()`) between page requests or clicks to prevent server overload.
+- **Cookies & Sessions**:
+  - *Static:* Manually attached to request headers.
+  - *Dynamic:* Managed automatically by the browser engine after submitting logins or interacting with form inputs.
+- **Pagination / Crawling**:
+  - *Static:* Querying sequential page parameter URLs (`?page=1`, `?page=2`) or pulling static `href` links.
+  - *Dynamic:* Simulating automated **clicks** on "Next / Load More" buttons or triggering **infinite scroll**.
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+### 💡 Key Takeaway for Pagination
+
+**Static scraping** relies on inspecting URLs and link structures (`href`). **Dynamic scraping** can physically interact with site elements—clicking buttons and waiting for the DOM to refresh.
+:::
+
+------------------------------------------------------------------------
+
+## HTTP Status Codes Scrapers Encounter {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+- **`200 OK`** — Success! Page HTML downloaded properly
+- **`403 Forbidden`** — Access denied (blocked by web firewall, `robots.txt`, or missing User-Agent)
+- **`404 Not Found`** — Page URL moved, deleted, or mis-typed
+- **`429 Too Many Requests`** — Rate limit triggered! You scraped too fast without politeness delays
+- **`500 / 503 Server Error`** — The host server failed or is under high load (pause and retry with backoff)
+
+::: {.callout-warning icon="false"}
+### ⚠️ Defensive Scraping Strategy
+
+Always check status codes! If your script receives a `429` or `403`, stop immediately and adjust your request rate (`Sys.sleep()`) or request headers.
+:::
+
+------------------------------------------------------------------------
+
+## So, How Do Researchers Use Web Scraping? {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: incremental
+- Health Policy: Scrape state health department press releases and policy updates
+
+- Directories: Extract faculty profiles, clinical facility listings, or committee rosters
+
+- Gray Literature: Collect regulatory reports, white papers, and non-indexed PDFs
+
+- Surveillance: Monitor public hospital bed availability or outbreak dashboards
+
+- Grant & Funding Tracking: Audit institutional awards and research project listings
+
+- News Archives: Build media text corpora for natural language processing (NLP)
+:::
+
+------------------------------------------------------------------------
+
+## Web Scraping Workflow (The "Researcher Loop") {.scrollable background-color="#1E293B" style="padding-left: 1em;"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: incremental
+1.  **Identify source + inspect DOM**: Review site `robots.txt`, Terms of Service, and target table structure.
+
+2.  **Draft selector strategy**: Identify target XPaths (e.g., `/html/body/.../table`) or CSS class selectors.
+
+3.  **Fetch web page**: Download page HTML into R memory using `read_html()` *(passes standard GET headers)*.
+
+4.  **Extract & clean data**: Target specific nodes with `html_element()` and convert to tibbles with `html_table()` + `janitor::clean_names()`.
+
+5.  **Save HTML snapshot**: Store local HTML snapshots (`write_html()`) alongside processed CSVs for research auditability and reproducibility.
+
+6.  **Record provenance**: Log the target URL, XPath selectors, scraping timestamp, and R package session info.
+:::
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: notes
+💡 Workshop Tip Steps 3 and 4 directly mirror your code: `read_html()` pulls the entire document tree into `page` **once**, and your custom `scrape_by_xpath()` function executes Step 4 across multiple table paths.
+:::
+
+------------------------------------------------------------------------
+
+## Demonstration Pattern Today (R / rvest) {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+We’ll demonstrate a reproducible R pattern using the Wikipedia COVID-19 dataset:
+
+- **Inspect Page Structure**: Use browser Developer Tools to find target element XPaths / CSS selectors
+- **Download HTML Source**: Read raw web page code into R memory (`read_html()`)
+- **Locate Target Nodes**: Target specific DOM elements using XPaths or CSS (`html_element()`)
+- **Extract Structured Data**: Parse tabular HTML directly into data frames (`html_table()`) or text (`html_text2()`)
+- **Clean & Modularize**: Transform raw outputs using `janitor::clean_names()`, `dplyr`, and custom reusable functions
+
+::: {style="margin-top: 1em;"}
+:::
+
+::: {.callout-note icon="false"}
+### 💡 Note on Extraction
+
+While `html_text2()` and `html_attr()` are used for pulling raw text or link URLs from generic HTML nodes, `html_table()` is specifically built to convert HTML `<table>` tags directly into R data frames!
+:::
+
+------------------------------------------------------------------------
+
+## Part 2 - Hands-On Scraping Objectives {.center background-color="#1E293B"}
+
+------------------------------------------------------------------------
+
+## Case Study 1: Static HTML Scraping (Wikipedia) {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### What We Are Scraping
+
+Extracting global COVID-19 pandemic case counts and mortality data by country directly from Wikipedia.
+
+### STEP 1 – Open the Page & Inspect the DOM
+
+- Visit [COVID-19 pandemic by country and territory](https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory) in your browser.
+- Right-click anywhere inside the main data table $\rightarrow$ click **Inspect** (or "Inspect Element").
+- Hover over elements in DevTools to highlight the target `<table>` on the live webpage.
+
+### STEP 2 – Locate & Target the Element
+
+- The target content lives inside `<div class="mw-parser-output">`.
+- The data table itself is a `<table class="wikitable sortable">` element.
+- Right-click the `<table>` tag in DevTools $\rightarrow$ **Copy** $\rightarrow$ **Copy Full XPath**.
+
+::: {.callout-note icon="false"}
+**Example Full XPath:**\
+`/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table`
+:::
+
+------------------------------------------------------------------------
+
+## Case Study 2: Dynamic Browser Scraping (CDC FluView) {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### What We Are Scraping
+
+Automating interaction with the [CDC FluView Portal](https://gis.cdc.gov/grasp/fluview/main.html) to request and download influenza surveillance datasets.
+
+### Why Static Parsing (`rvest`) Fails Here
+
+The data isn't present in raw HTML—it requires JavaScript rendering, handling modal overlays, selecting form options, and triggering browser click events.
+
+### Automation Step-by-Step (Playwright)
+
+1.  **Navigate**: Launch a headless browser session to the CDC FluView web app.
+2.  **Open Download Modal**: Locate and click the **"Download Data"** interface button.
+3.  **Configure Options**: Select the **"Custom Download"** radio button option.
+4.  **Select Parameters**: Open the season dropdown and choose **"2025-2026"**.
+5.  **Execute Download**: Click the export button, accept the browser file prompt, and save the raw file to disk.
+
+------------------------------------------------------------------------
+
+## Part 3 - Hands-On Code Execution {.center background-color="#1E293B"}
+
+::: r-fit-text
+💻 Time for Live Coding
+:::
+
+Please navigate to and open:\
+`web_scraping_demonstration.qmd`
+
+------------------------------------------------------------------------
+
+## Part 4: Wrap-Up & Handy Web Scraping Resources {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1em;"}
+:::
+
+### 🔗 Essential Web Scraping Toolkit & Reference Index
+
+| Category | Resource & URL | Purpose & Key Highlights |
+|:-----------------------|:-----------------------|:-----------------------|
+| **R Scraping & Ethics** | **rvest (Tidyverse)**<br><small><https://rvest.tidyverse.org/></small><br><br>**polite**<br><small><https://dmi3kno.github.io/polite/></small> | Core static HTML parser; extract nodes, text (`html_text2`), and tables (`html_table`).<br><br>Ethical scraping wrapper; automatically checks `robots.txt` and manages crawl delays. |
+| **Dynamic Browser Automation** | **Playwright (Python/Node/R)**<br><small><https://playwright.dev/></small><br><br>**RSelenium**<br><small><https://docs.ropensci.org/RSelenium/></small> | Modern headless browser automation; handles JavaScript rendering, clicks, dropdowns, and file downloads.<br><br>R interface for W3C WebDriver; automates browser interaction across dynamic sites. |
+| **Selectors & Inspection** | **CSS Selectors Reference (MDN)**<br><small><https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors></small><br><br>**XPath Syntax Guide (W3Schools)**<br><small><https://www.w3schools.com/xml/xpath_syntax.asp></small> | Guide for targeting DOM elements by class (`.class`), ID (`#id`), or attribute (`[attr=val]`).<br><br>Syntax reference for traversing hierarchical XML/HTML document trees. |
+| **Compliance & Governance** | **robotstxt (R Package)**<br><small><https://github.com/ropensci/robotstxt></small><br><br>**W3C Robot Exclusion Standard**<br><small><https://www.robotstxt.org/></small> | Programmatic parsing of domain `robots.txt` files directly in R via `paths_allowed()`.<br><br>Official standard documentation for crawler rules, `Disallow` directives, and `Crawl-delay`. |
+| **Health Data Web Targets** | **CDC FluView Interactive**<br><small><https://gis.cdc.gov/grasp/fluview/main.html></small><br><br>**WHO Data Portal**<br><small><https://www.who.int/data></small> | Example of a dynamic web application requiring Playwright to trigger file export downloads.<br><br>Global health metrics and epidemiological table listings for static or dynamic extraction. |
+
+::: {.callout-tip icon="false"}
+💡 **Takeaway for Researchers:** Always check for an official REST API first. When an API isn't available, combination workflows—using **`polite` + `rvest`** for static sites and **Playwright** for dynamic applications—provide a robust, reproducible data retrieval pipeline.
+:::
+
+::: {style="margin-top: 1em;"}
+:::
+
+### 📧 Thank You & Stay Connected!
+
+- **Questions or Feedback?** Email: `maximilian.wegener@yale.edu`
+
+------------------------------------------------------------------------
+
+## Survey {.scrollable background-color="#1E293B"}
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+### Please scan the QR code to take the class survey
+
+::: {style="margin-top: 1.5em;"}
+:::
+
+![](images/paste-1.png)
