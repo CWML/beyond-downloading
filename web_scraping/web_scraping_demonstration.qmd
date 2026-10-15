@@ -100,7 +100,7 @@ install.packages("tidyverse")  # includes dplyr, tibble, readr, purrr
 install.packages("janitor")    # clean_names() and table hygiene
 
 # Browser automation wrapper (R interface for Playwright)
-install.packages("playwrightr")
+# install.packages("playwrightr")
 
 # Table formatting & reporting
 install.packages("flextable")
@@ -152,8 +152,9 @@ url <- "https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory
 # Permanent XPath: Finds the heading ID 'Cases_by_country_and_territory', 
 # steps up to its container, and selects the adjacent <table> node.
 # ==============================================================================
-target_xpath <- '//*[@id="mwAaI"]/table'
 
+# target_xpath <- '//*[@id="mwAaI"]/table'
+target_xpath <-  '/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[1]/section[3]/section[1]/div[4]/table'
 
 # ==============================================================================
 # Step 3: Fetch web page
@@ -189,6 +190,8 @@ if ("x1" %in% colnames(covid_tbl)) {
 # Step 5: Save HTML snapshot & processed data
 # Save raw static HTML snapshot for auditability alongside processed dataset
 # ==============================================================================
+# Preserves source HTML offline so data extraction can be audited, re-parsed, or debugged if the live site changes 
+# save in working directory
 write_html(page, "covid_page_snapshot.html")
 
 
@@ -231,10 +234,14 @@ url <- "https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory
 # Define distinct XPaths for each target table node on the page
 # ==============================================================================
 # Target the 1st matching table node (Cases table)
-path_cases <- '//*[@id="mwAaI"]/table'
+
+#path_cases <- '//*[@id="mwAaI"]/table'
+path_cases <- '/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[1]/section[3]/section[1]/div[4]/table'
 
 # Target the 2nd matching table node (Vaccine/Timeline table)
-path_timeline <- '//*[@id="mwAjg"]/table'
+
+# path_timeline <- '//*[@id="mwAjg"]/table' 
+path_timeline <- '/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[1]/section[3]/section[5]/div[5]/table'
 
 # Define re-usable extraction pipeline function with safety checks
 scrape_by_xpath <- function(html_page, xpath_string) { 
@@ -302,28 +309,27 @@ head(covid_tbl_2)
 
 See python script file, "scraping_using_playwright.py"
 
-## Using Yale's Clarity platfor to help you generate code
+## Using Yale's Clarity platform to help you generate code
 
 ### Writing a static scraping code for R
 
-Write an R script using 
+Write an R script using
 
-1. Language & Tools: R (`rvest`, `janitor`, `dplyr`)
-2. Scraping Method: Static web scraping
-3. Target URL: `https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory`
-4. Target Selector: `XPath: /html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table`
-5. Goal: Download HTML once, extract table, convert to tibble, clean column names, and drop empty index column.
+1.  Language & Tools: R (`rvest`, `janitor`, `dplyr`)
+2.  Scraping Method: Static web scraping
+3.  Target URL: `https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory`
+4.  Target Selector: `XPath: /html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table`
+5.  Goal: Download HTML once, extract table, convert to tibble, clean column names, and drop empty index column.
 
 ### Writing a dynamic scraping code for python using playwright
 
-1. Language & Tools: Python playwright
-2. Scraping Method: dynamic web scraping
-3. navigate to URL:
+1.  Language & Tools: Python playwright
+2.  Scraping Method: dynamic web scraping
+3.  navigate to URL:
 
 Then describe what you want to do and add the xpaths, for example:
 
-4. click download: /html/body/div[1]/header/div[4]/button[2]
-5. select custom download: //*[@id="downloadDataBody"]/ul[1]/li[2]/div/ul/li/label
-6. click by week: //*[@id="customDownloadPanel"]/li[2]/div[1]/div/li/a
-7. click download data: //*[@id="downloadDataModal"]/div/div/div[3]/button[1]
-
+4.  click download: /html/body/div\[1\]/header/div\[4\]/button\[2\]
+5.  select custom download: //\*[@id="downloadDataBody"]/ul\[1\]/li\[2\]/div/ul/li/label
+6.  click by week: //\*[@id="customDownloadPanel"]/li\[2\]/div\[1\]/div/li/a
+7.  click download data: //\*[@id="downloadDataModal"]/div/div/div\[3\]/button\[1\]

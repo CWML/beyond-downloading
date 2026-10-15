@@ -68,7 +68,7 @@ Programmatically extracting data directly from web pages (HTML/DOM).
 
 ::: incremental
 1.  Web Scraping Fundamentals and Background
-2.  Available APIs
+2.  Hands-On Scraping Objectives
 3.  Live R Demonstrations
 4.  Wrap-up & Resources
 :::

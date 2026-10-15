@@ -6,8 +6,8 @@
 .httr-oauth
 _quarto/
 _cache/
-*.nb.html          # knitted notebooks kept out of version control
-*_files/           # reveal.js / html dependencies
+# knitted notebooks kept out of version control
+*.nb.html
 notes.r
 
 # ─── Python (optional) ───────────────────────────────
@@ -27,8 +27,8 @@ Thumbs.db
 data/raw/
 *.csv.gz
 *.zip
-notes/             # Ignores 'notes' folder anywhere in project
-OLD/               # Ignores 'OLD' folder anywhere in project
+# Files downloaded by running the demos
+**/downloads/
 
 # Quarto internal cache
 /.quarto/
