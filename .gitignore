@@ -43,3 +43,16 @@ data/raw/
 # Ignore local notes and old material anywhere in repo
 **/OLD/
 **/notes/
+# Keep the rendered website (GitHub Pages serves docs/)
+!docs/**/*_files/
+
+**/*.quarto_ipynb
+
+# Output files written by running the web scraping demo
+covid_*.csv
+covid_*.html
+!docs/**/notes/
+
+# Old webR extension (no longer used; safe to delete these folders)
+/_extensions/
+/APIs/_extensions/

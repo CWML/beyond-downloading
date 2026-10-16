@@ -41,7 +41,7 @@ Each scraping script in this document follows a six-step research workflow:
 | Step | What it means |
 |:-----------------------------------|:-----------------------------------|
 | **1. Identify source + inspect DOM** | Review `robots.txt`, Terms of Service, and target page layout via browser Developer Tools |
-| **2. Draft selector strategy** | Identify unique XPaths (e.g., `/html/body/.../table`) or CSS classes (e.g., `.wikitable`) |
+| **2. Draft selector strategy** | Identify unique XPaths (e.g., `//*[@id="mwAaI"]/table`) or CSS classes (e.g., `.wikitable`) |
 | **3. Request web page** | Download HTML with `read_html()` or establish an ethical session using `polite::bow()` |
 | **4. Extract + clean** | Parse tabular nodes with `html_table()` and clean column names using `janitor::clean_names()` |
 | **5. Save raw + processed data** | Write static HTML snapshots to disk for auditability; export cleaned tibbles as CSVs |
@@ -149,12 +149,17 @@ url <- "https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory
 
 # ==============================================================================
 # Step 2: Draft selector strategy
-# Permanent XPath: Finds the heading ID 'Cases_by_country_and_territory', 
-# steps up to its container, and selects the adjacent <table> node.
+# In DevTools, right-click the <table> tag -> Copy -> Copy XPath (not "Copy full XPath").
+# The short XPath starts from the nearest element with an ID, so it still works
+# when the rest of the page layout changes. The full XPath (/html/body/div[3]/...)
+# describes the page after the browser has run its JavaScript, and often finds
+# nothing in the raw HTML that read_html() downloads.
 # ==============================================================================
+target_xpath <- '//*[@id="mwAaI"]/table'
 
-# target_xpath <- '//*[@id="mwAaI"]/table'
-target_xpath <-  '/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[1]/section[3]/section[1]/div[4]/table'
+# If Wikipedia edits the page and the ID above changes, anchor on the section
+# heading instead, which changes much less often:
+# target_xpath <- '//*[@id="Total_cases,_deaths,_and_death_rates_by_country"]/ancestor::section[1]//table[contains(@class,"wikitable")]'
 
 # ==============================================================================
 # Step 3: Fetch web page
@@ -233,15 +238,13 @@ url <- "https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory
 # Step 2: Draft selector strategy
 # Define distinct XPaths for each target table node on the page
 # ==============================================================================
-# Target the 1st matching table node (Cases table)
+# (Copied with DevTools -> Copy -> Copy XPath, as in Snippet 1)
 
-#path_cases <- '//*[@id="mwAaI"]/table'
-path_cases <- '/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[1]/section[3]/section[1]/div[4]/table'
+# Target the 1st matching table node (Cases table)
+path_cases <- '//*[@id="mwAaI"]/table'
 
 # Target the 2nd matching table node (Vaccine/Timeline table)
-
-# path_timeline <- '//*[@id="mwAjg"]/table' 
-path_timeline <- '/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[1]/section[3]/section[5]/div[5]/table'
+path_timeline <- '//*[@id="mwAjg"]/table'
 
 # Define re-usable extraction pipeline function with safety checks
 scrape_by_xpath <- function(html_page, xpath_string) { 
@@ -309,6 +312,16 @@ head(covid_tbl_2)
 
 See python script file, "scraping_using_playwright.py"
 
+Run it in a Jupyter notebook: it uses `await` at the top level, which only works in a notebook.
+
+```{r}
+#| echo: false
+#| eval: true
+#| output: asis
+# Show the current contents of the Python script on the website
+cat("```python", readLines("scraping_using_playwright.py"), "```", sep = "\n")
+```
+
 ## Using Yale's Clarity platform to help you generate code
 
 ### Writing a static scraping code for R
@@ -318,7 +331,7 @@ Write an R script using
 1.  Language & Tools: R (`rvest`, `janitor`, `dplyr`)
 2.  Scraping Method: Static web scraping
 3.  Target URL: `https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory`
-4.  Target Selector: `XPath: /html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table`
+4.  Target Selector: `XPath: //*[@id="mwAaI"]/table`
 5.  Goal: Download HTML once, extract table, convert to tibble, clean column names, and drop empty index column.
 
 ### Writing a dynamic scraping code for python using playwright

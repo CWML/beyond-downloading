@@ -1,0 +1,88 @@
+---
+title: "Lesson 2: Web Scraping"
+subtitle: "Automating data retrieval with web scraping"
+---
+
+::: downloads
+[🖥️ View slides](../../web_scraping/web_scraping.qmd){.btn .btn-outline-primary .btn-sm} [⬇ Download slides (HTML)](../../web_scraping/web_scraping.qmd){.btn .btn-outline-secondary .btn-sm download="beyond-downloading-web-scraping-slides.html"} [⬇ Demo file (.qmd)](https://github.com/CWML/beyond-downloading/blob/main/web_scraping/web_scraping_demonstration.qmd){.btn .btn-outline-secondary .btn-sm} [⬇ Playwright script (.py)](https://github.com/CWML/beyond-downloading/blob/main/web_scraping/scraping_using_playwright.py){.btn .btn-outline-secondary .btn-sm} [⬇ Whole course folder (ZIP)](https://github.com/CWML/beyond-downloading/archive/refs/heads/main.zip){.btn .btn-outline-secondary .btn-sm}
+:::
+
+::: callout-note
+## In this session you will learn to
+
+1.  Decide when web scraping is appropriate, and check the rules (`robots.txt`, Terms of Service)
+2.  Parse static HTML content and tables in R with `rvest`, XPaths, and CSS selectors
+3.  Extract structured data from multiple tables safely and politely
+4.  Recognize when a page needs a real browser, and how authenticated scraping works without exposing credentials
+
+**Before you start:** complete the [Setup](../setup.qmd) and open `web_scraping/web_scraping_demonstration.qmd`.
+:::
+
+::: callout-tip
+## Viewing the slides
+
+Press **F** for full screen and **Esc** for an overview of all slides. To save them as a PDF, add `?print-pdf` to the end of the slide URL and print the page to PDF (works best in Chrome).
+:::
+
+## What is web scraping?
+
+Web scraping is extracting data from web pages with code. You need it when:
+
+-   **No official API exists** for the data
+-   **The API is restricted**, rate-limited, or paywalled
+-   **The data only appears on a public web page** (directory listings, public tables, news archives)
+
+::: callout-important
+## Always check for an API first
+
+APIs are more stable, better documented, and more reproducible than scraping. Scrape only when there is no API or bulk download. See [Lesson 1](01-apis.qmd).
+:::
+
+Every example in this lesson follows the same data journey:
+
+```
+Target URL ──► HTML/DOM Response ──► Select & Target Nodes
+           ──► Parse Text/Tables ──► Data Frame (Tibble) ──► Save Snapshot & CSV
+```
+
+## Static vs dynamic scraping
+
+|  | Static (`rvest`, `polite`) | Dynamic (Playwright, `chromote`, Selenium) |
+|----|----|----|
+| **How it works** | Downloads the raw HTML from the server | Drives a real browser that runs the page's JavaScript |
+| **Speed** | Fast and lightweight | Slower; uses more memory |
+| **Can click and type?** | No | Yes: buttons, dropdowns, logins, downloads |
+| **`robots.txt`** | Checked automatically by `polite::bow()` | You must check it yourself |
+| **Example in this lesson** | Wikipedia COVID-19 tables | CDC FluView download |
+
+**Rule of thumb:** always start with static scraping. Switch to a browser tool only if the data is built by JavaScript after the page loads.
+
+## The researcher loop
+
+1.  **Identify source + inspect DOM**: check `robots.txt` and the Terms of Service, then inspect the page in your browser's Developer Tools
+2.  **Draft selector strategy**: find the XPath or CSS selector for your target
+3.  **Fetch web page**: download the HTML once with `read_html()`
+4.  **Extract + clean**: `html_element()`, `html_table()`, `janitor::clean_names()`
+5.  **Save HTML snapshot**: `write_html()`, so the data pull can be checked later even if the site changes
+6.  **Record provenance**: URL, selectors, timestamp, and package versions
+
+## The live demo
+
+| \# | Example | Language | What it shows |
+|----|---------|----------|---------------|
+| 1 | One Wikipedia table | R | Fetch once, select by XPath, clean, save a snapshot, log provenance |
+| 2 | Several Wikipedia tables | R | A reusable `scrape_by_xpath()` function; exporting CSVs |
+| 3 | CDC FluView | Python | Playwright clicks through a download dialog and saves the file |
+| 4 | Writing code with AI | (prompt) | How to ask Yale's Clarity platform to draft scraping code |
+
+**[👀 Open the demo code](../../web_scraping/web_scraping_demonstration.qmd)** to follow along, or download the demo file above and run it one chunk at a time.
+
+::: callout-warning
+## Web pages change
+
+Websites change their layout without warning, and an XPath that works today can break tomorrow. That's why the demos save an HTML snapshot and log the selectors they used. If a demo fails, inspect the page again and update the XPath.
+:::
+
+## Next
+
+See [Resources](../resources.qmd) for scraping tools, selector guides, and `robots.txt` references.

@@ -1,0 +1,12 @@
+---
+title: "Archive"
+subtitle: "Slides from past offerings of the course"
+---
+
+The course is updated each time it is taught, because websites and APIs change. The current slides are always on the lesson pages. Past versions are kept here so you can find the version you attended.
+
+| Offering | Lesson 1: APIs | Lesson 2: Web scraping |
+|----------|----------------|------------------------|
+| Fall 2026 *(current)* | [Slides](../APIs/APIs.qmd) (Aug 17, 2026) | [Slides](../web_scraping/web_scraping.qmd) (Aug 31, 2026) |
+
+Each set of slides is a single HTML file. Open it in any browser, or right-click the link and choose **Save Link As...** to keep a copy.

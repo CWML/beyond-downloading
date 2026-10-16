@@ -1,0 +1,37 @@
+---
+title: "Session 1: APIs"
+subtitle: "Teaching notes for Lesson 1"
+---
+
+**Learner page:** [Lesson 1: APIs](../lessons/01-apis.qmd) · **Slides:** `APIs/APIs.qmd` · **Demo:** `APIs/API_demonstration.qmd`
+
+## Prepare
+
+-   Run every chunk in `API_demonstration.qmd` the day before.
+-   Check that your own Census key works (`Sys.getenv("CENSUS_API_KEY") != ""`).
+-   Have the API documentation pages open in browser tabs, so you can show where each parameter comes from.
+
+## Flow
+
+The session runs about **120 minutes**.
+
+1.  **Part 1: API fundamentals**: what an API is, data formats (CSV, JSON, XML), vocabulary, HTTP methods, status codes, the researcher loop.
+2.  **Part 2: Available APIs**: REDCap, R packages, PubMed, ClinicalTrials.gov, openFDA, CDC Socrata, Census, UMLS.
+3.  **Part 3: Live demo**: switch to `API_demonstration.qmd`.
+4.  **Part 4: Wrap-up**: the resource table and the survey QR code.
+
+## Teaching notes
+
+-   **The same workflow every time.** After the first two demos, ask learners to name the steps before you run them: endpoint, parameters, send, extract, parse, navigate. The syntax changes between APIs, but the workflow doesn't.
+-   **Drilling into JSON.** The demos draw the list structure as a folder tree (`dat → $esearchresult → $idlist`). Run `str()` on the parsed object to show learners how to find the path themselves.
+-   **openFDA `count`.** openFDA is built on Elasticsearch, so its `search` syntax supports Boolean logic in the URL. Point out the `count` parameter: instead of downloading 50,000 records to count in R, `count=patient.drug.medicinalproduct.exact` returns summary counts directly.
+-   **Census denominators.** In public health, outcome data rarely comes with population denominators. The Census API provides them. Mention that ACS estimates always come with margins of error (the `moe` column), unlike administrative counts.
+-   **UMLS.** UMLS is the "Rosetta Stone" between coding systems: EHRs use SNOMED and LOINC, pharmacy data uses RxNorm, and billing uses ICD-10.
+-   **`httr` vs `httr2`.** The demo uses both on purpose, because learners will see both in other people's code. Recommend `httr2` for new code.
+
+## Known problems
+
+-   **Census key not loaded.** If `get_acs()` fails, the key is usually missing from `.Renviron`, or R wasn't restarted after adding it.
+-   **`census_api_key(..., install = TRUE)`** writes to `.Renviron` again. Tell learners who already added the key by hand that they can skip that chunk.
+-   **Socrata dataset ID.** The second Socrata chunk uses a fixed dataset ID (`akn2-qxic`). If CDC retires the dataset, use the ID returned by the catalog search in the chunk above it.
+-   **Rate limits.** If many learners send requests at once from the same network, an API may return `429 Too Many Requests`. Wait a minute and try again, and use it to explain rate limits.

@@ -1,0 +1,87 @@
+project:
+  type: website
+  output-dir: docs
+  render:
+    - index.qmd
+    - "pages/**/*.qmd"
+    - APIs/APIs.qmd
+    - APIs/API_demonstration.qmd
+    - web_scraping/web_scraping.qmd
+    - web_scraping/web_scraping_demonstration.qmd
+  resources:
+    - ".nojekyll"
+    - "archive/**"
+
+website:
+  title: "Beyond Downloading"
+  description: "Automating data retrieval with APIs and web scraping, for biomedical and public health researchers, from the Yale Cushing/Whitney Medical Library"
+  site-url: https://cwml.github.io/beyond-downloading/
+  repo-url: https://github.com/CWML/beyond-downloading
+  search: true
+  page-navigation: true
+
+  navbar:
+    left:
+      - text: "Home"
+        href: index.qmd
+      - text: "Setup"
+        href: pages/setup.qmd
+      - text: "Lessons"
+        href: pages/lessons/01-apis.qmd
+      - text: "Resources"
+        href: pages/resources.qmd
+      - text: "Archive"
+        href: pages/archive.qmd
+      - text: "Instructor Guide"
+        href: pages/instructor/index.qmd
+    right:
+      - icon: envelope
+        text: "Feedback"
+        href: "mailto:maximilian.wegener@yale.edu?subject=Beyond%20Downloading%20feedback"
+        aria-label: "Send feedback by email to maximilian.wegener@yale.edu"
+      - icon: github
+        href: https://github.com/CWML/beyond-downloading
+        aria-label: "Course materials on GitHub"
+
+  sidebar:
+    - id: lessons
+      title: "Lessons"
+      style: docked
+      contents:
+        - pages/lessons/01-apis.qmd
+        - text: "APIs: live demo code"
+          href: APIs/API_demonstration.qmd
+        - pages/lessons/02-web-scraping.qmd
+        - text: "Web scraping: live demo code"
+          href: web_scraping/web_scraping_demonstration.qmd
+    - id: instructor
+      title: "Instructor Guide"
+      style: docked
+      contents:
+        - pages/instructor/index.qmd
+        - pages/instructor/session-01.qmd
+        - pages/instructor/session-02.qmd
+
+  page-footer:
+    left: "Cushing/Whitney Medical Library, Yale School of Medicine"
+    center: "Questions or feedback? Email [maximilian.wegener@yale.edu](mailto:maximilian.wegener@yale.edu?subject=Beyond%20Downloading%20feedback)"
+    right: "Built with [Quarto](https://quarto.org)"
+
+format:
+  html:
+    theme:
+      light: cosmo
+      dark: darkly
+    respect-user-color-scheme: true
+    css: styles.css
+    toc: true
+    toc-title: "On this page"
+    code-copy: true
+    code-overflow: wrap
+
+# The demos call live websites and APIs (and the Census API needs a key),
+# so the site shows the code without running it. Run the chunks yourself in R.
+execute:
+  eval: false
+  message: false
+  warning: false

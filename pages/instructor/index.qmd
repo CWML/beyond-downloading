@@ -1,0 +1,74 @@
+---
+title: "Instructor Guide"
+subtitle: "How to run, update, and archive Beyond Downloading"
+---
+
+This guide is for anyone teaching the course. The [lessons](../lessons/01-apis.qmd) contain everything learners see. The pages here add preparation steps, teaching notes, and known problems.
+
+## The teaching rhythm
+
+Each session has two halves:
+
+1.  **🖥️ Slides**: concepts, ground rules, and a tour of the data sources.
+2.  **👀 Live demo**: switch to your editor and run the demo file one chunk at a time. Learners run the same chunks in their own copy.
+
+## Live coding tips
+
+-   **Run one chunk at a time** and talk about the output before moving on.
+-   **Use a big font** and a light color theme for the projector.
+-   **Read errors out loud** and fix them together. Learners will meet the same errors.
+-   **Expect live sites to misbehave.** APIs time out and web pages change. Treat a failure as a teaching moment about why we save snapshots and log provenance.
+
+## Before the course
+
+-   **One week before:** send learners the [Setup](../setup.qmd) page. Remind them that the Census key can take a few minutes to arrive, and that it must go in `.Renviron` before Lesson 1.
+-   **The day before each session:** run the whole demo file yourself. Websites and APIs change, so a demo that worked last term may not work now. See the session pages for the parts most likely to break.
+-   **Before each session:** have your own Census key loaded and the Playwright example working, in case the network is slow.
+
+## Session overview
+
+| Session | Lesson | Time | Slides | Demo file |
+|---|---|---|---|---|
+| 1 | [APIs](session-01.qmd) | 120 min | `APIs/APIs.qmd` | `APIs/API_demonstration.qmd` |
+| 2 | [Web scraping](session-02.qmd) | 120 min | `web_scraping/web_scraping.qmd` | `web_scraping/web_scraping_demonstration.qmd`, `web_scraping/scraping_using_playwright.py` |
+
+Each session is planned for about 120 minutes: slides first, then the live demo.
+
+## The materials
+
+| File or folder | What's in it |
+|---|---|
+| `index.qmd`, `pages/` | The website pages (home, setup, lessons, resources, archive, this guide) |
+| `APIs/`, `web_scraping/` | The slides and demo files for each lesson |
+| `archive/` | Copies of past slides, linked from the [Archive](../archive.qmd) page |
+| `_quarto.yml` | Website settings: navigation, sidebar, theme |
+| `docs/` | The rendered website. GitHub Pages serves this folder, so don't edit it by hand |
+
+## Updating the website
+
+1.  Edit the `.qmd` files.
+2.  In the terminal, from the course folder, run:
+
+    ``` bash
+    quarto render
+    ```
+
+    This rebuilds the whole site, including the slides, into `docs/`.
+
+3.  Commit and push, **including `docs/`**. GitHub Pages updates a minute or two later.
+
+To preview while you edit, run `quarto preview` instead. It opens the site in your browser and reloads when you save.
+
+::: callout-note
+The site shows the demo code without running it (`eval: false` in `_quarto.yml`), because the demos call live websites and the Census API needs a key. Learners run the code themselves.
+:::
+
+## Archiving the slides at the end of a term
+
+Before you change the slides for a new term, save a copy of the current ones:
+
+1.  Run `quarto render` so `docs/` has the latest slides.
+2.  Make a folder for the term, for example `archive/2026-fall/`.
+3.  Copy `docs/APIs/APIs.html` and `docs/web_scraping/web_scraping.html` into it. The slides are self-contained (`embed-resources: true`), so each one is a single file.
+4.  On the [Archive](../archive.qmd) page (`pages/archive.qmd`), change the links in that term's row to point to the copies, for example `../archive/2026-fall/APIs.html`, and add a new row for the new term.
+5.  Render, commit, and push.

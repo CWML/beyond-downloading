@@ -1,0 +1,986 @@
+[
+  {
+    "objectID": "web_scraping/web_scraping_demonstration.html",
+    "href": "web_scraping/web_scraping_demonstration.html",
+    "title": "Web Scraping Demonstrations in R",
+    "section": "",
+    "text": "This document demonstrates several approaches for extracting structured web data using R.\nThe examples cover fundamental static scraping techniques using rvest, ethical rate-limiting and domain rule parsing with polite and robotstxt, XPath/CSS element targeting, handling multi-table extractions, and dynamic browser automation using playwright.\n\n\n\n\n\nEvery web scraping example in this document follows the same data journey:\nTarget URL ──► HTML/DOM Response ──► Select & Target Nodes ──► Parse Text/Tables ──► Data Frame (Tibble) ──► Save Snapshot & CSV\n\n\n\n\n\n\n\nStage\nWhat happens\n\n\n\n\nTarget URL\nDefine the specific web endpoint or directory listing containing the target data\n\n\nHTML/DOM Response\nServer returns the raw markup tree parsed by read_html() or rendered via playwright\n\n\nSelect & Target Nodes\nhtml_element() or html_elements() locate nodes via XPaths or CSS selectors\n\n\nParse Text / Tables\nhtml_table(), html_text2(), or html_attr() extract structured data into memory\n\n\nData Frame / Tibble\nclean_names() and dplyr transform raw text into analysis-ready columns\n\n\nSave Snapshot & CSV\nwrite_html() preserves the raw audit snapshot; write_csv() exports processed data\n\n\n\n\n\n\n\nEach scraping script in this document follows a six-step research workflow:\n\n\n\n\n\n\n\nStep\nWhat it means\n\n\n\n\n1. Identify source + inspect DOM\nReview robots.txt, Terms of Service, and target page layout via browser Developer Tools\n\n\n2. Draft selector strategy\nIdentify unique XPaths (e.g., //*[@id=\"mwAaI\"]/table) or CSS classes (e.g., .wikitable)\n\n\n3. Request web page\nDownload HTML with read_html() or establish an ethical session using polite::bow()\n\n\n4. Extract + clean\nParse tabular nodes with html_table() and clean column names using janitor::clean_names()\n\n\n5. Save raw + processed data\nWrite static HTML snapshots to disk for auditability; export cleaned tibbles as CSVs\n\n\n6. Record provenance\nDocument the target URL, extraction selectors, scraping timestamp, and session metadata\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nTerm\nDefinition\n\n\n\n\nDOM Tree\nDocument Object Model; the hierarchical tree structure representing HTML elements\n\n\nCSS Selector\nPattern used to select elements based on tags, classes (.class), or IDs (#id)\n\n\nXPath\nLanguage for navigating XML/HTML nodes path-wise (e.g., //table[contains(@class, 'wikitable')])\n\n\nUser-Agent\nRequest header string identifying your scraping session to the web server\n\n\nrobots.txt\nText file on domain root specifying forbidden paths and crawl delays for web bots\n\n\nStatic Scraping\nExtracting data embedded directly in raw HTML returned by the initial server request\n\n\nDynamic Scraping\nAutomating a browser engine (e.g., Chromium) to render JavaScript and trigger clicks\n\n\n\n\n\n\n\nBoth approaches extract web content, but they operate at different levels of execution:\n\n\n\n\n\n\n\n\nFeature\nrvest + polite (Static)\nplaywright (Dynamic)\n\n\n\n\nExecution\nDirect HTTP fetch; parses raw HTML text\nLaunches full browser (Chromium/Firefox/WebKit)\n\n\nJavaScript\nCannot execute client-side JS\nFully executes single-page applications (SPAs)\n\n\nInteractivity\nSingle fetch; cannot click or type\nSimulates clicks, form inputs, and dropdowns\n\n\nSpeed & Overhead\nFast; minimal CPU/memory usage\nResource-intensive; spawns browser process\n\n\nrobots.txt\nObeyed automatically via polite::bow()\nMust be verified explicitly (browser bypasses it)\n\n\nFile Downloads\nPulls direct file URLs (href)\nIntercepts dynamic browser download triggers\n\n\nPrimary Use Case\nWikipedia, static news, public listings\nCDC FluView, interactive portals, complex authentication\n\n\n\n\n💡 Workshop Tip: Steps 3 and 4 directly mirror your code: read_html() pulls the entire document tree into page once, and your custom scrape_by_xpath() function executes Step 4 across multiple table paths.\n\n\n\n\n\nRun this chunk once to install all R packages used in this document. Set eval: false after the first run.\n\n# Core static scraping\ninstall.packages(\"rvest\")\n\n# Ethical scraping & robots.txt compliance\ninstall.packages(\"polite\")\ninstall.packages(\"robotstxt\")\n\n# Data manipulation and cleaning\ninstall.packages(\"tidyverse\")  # includes dplyr, tibble, readr, purrr\ninstall.packages(\"janitor\")    # clean_names() and table hygiene\n\n# Browser automation wrapper (R interface for Playwright)\n# install.packages(\"playwrightr\")\n\n# Table formatting & reporting\ninstall.packages(\"flextable\")\n\n\n\n\n\n# rvest — core Tidyverse tool for downloading HTML, navigating DOM nodes, and parsing tables\nlibrary(rvest)\n\n# polite — ethical scraping wrapper around rvest; checks robots.txt and manages crawl delays\nlibrary(polite)\n\n# robotstxt — programmatic checking of domain crawler permission rules\nlibrary(robotstxt)\n\n# Core data manipulation: dplyr (wrangling), tibble (modern data frames),\n# tidyr (reshaping), stringr (text cleanup), and the pipe operator (%&gt;%)\nlibrary(tidyverse)\n\n# janitor — automates column name cleaning (clean_names) and deduplication\nlibrary(janitor)\n\n# flextable — builds formatted, publication-ready tables in HTML/Quarto output\nlibrary(flextable)\n\n\n\n\n\n\n\n\nlibrary(rvest)\nlibrary(xml2)\nlibrary(janitor)\nlibrary(dplyr)\n\n# ==============================================================================\n# Step 1: Identify source + inspect DOM\n# Source: Wikipedia COVID-19 pandemic page\n# Target: Primary \"Cases by country and territory\" table\n# ==============================================================================\nurl &lt;- \"https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory\"\n\n\n# ==============================================================================\n# Step 2: Draft selector strategy\n# In DevTools, right-click the &lt;table&gt; tag -&gt; Copy -&gt; Copy XPath (not \"Copy full XPath\").\n# The short XPath starts from the nearest element with an ID, so it still works\n# when the rest of the page layout changes. The full XPath (/html/body/div[3]/...)\n# describes the page after the browser has run its JavaScript, and often finds\n# nothing in the raw HTML that read_html() downloads.\n# ==============================================================================\ntarget_xpath &lt;- '//*[@id=\"mwAaI\"]/table'\n\n# If Wikipedia edits the page and the ID above changes, anchor on the section\n# heading instead, which changes much less often:\n# target_xpath &lt;- '//*[@id=\"Total_cases,_deaths,_and_death_rates_by_country\"]/ancestor::section[1]//table[contains(@class,\"wikitable\")]'\n\n# ==============================================================================\n# Step 3: Fetch web page\n# Download entire raw HTML structure of the web page into R memory ONCE\n# ==============================================================================\npage &lt;- read_html(url)\n\n\n# ==============================================================================\n# Step 4: Extract & clean data\n# Target node -&gt; parse HTML table -&gt; format headers -&gt; safely drop index column\n# ==============================================================================\ncovid_tbl &lt;- page %&gt;%\n  # Target element node using resilient section-anchor XPath\n  html_element(xpath = target_xpath) %&gt;% \n  \n  # Convert HTML table into an R data frame, filling missing cells with NA\n  html_table(fill = TRUE) %&gt;% \n  \n  # Convert to tibble, repairing non-unique column names\n  as_tibble(.name_repair = \"unique\") %&gt;% \n  \n  # Standardize column headers to clean snake_case\n  clean_names()\n\n# Safely drop empty leading index column if present\nif (\"x1\" %in% colnames(covid_tbl)) {\n  covid_tbl &lt;- covid_tbl %&gt;% select(-x1)\n}\n\n\n# ==============================================================================\n# Step 5: Save HTML snapshot & processed data\n# Save raw static HTML snapshot for auditability alongside processed dataset\n# ==============================================================================\n# Preserves source HTML offline so data extraction can be audited, re-parsed, or debugged if the live site changes \n# save in working directory\nwrite_html(page, \"covid_page_snapshot.html\")\n\n\n# ==============================================================================\n# Step 6: Record provenance\n# Log metadata, execution timestamp, and dataset dimensions\n# ==============================================================================\ncat(\n  \"--- DATA PROVENANCE LOG ---\",\n  paste(\"Target URL :\", url),\n  paste(\"XPath Used :\", target_xpath),\n  paste(\"Scraped On :\", Sys.time()),\n  paste(\"Dimensions :\", nrow(covid_tbl), \"rows x\", ncol(covid_tbl), \"cols\"),\n  sep = \"\\n\"\n)\n\n# Preview extracted data\nhead(covid_tbl, 20)\n\n\n\n\n\nlibrary(rvest)\nlibrary(xml2)\nlibrary(janitor)\nlibrary(dplyr)\nlibrary(readr)\n\n# ==============================================================================\n# Step 1: Identify source + inspect DOM\n# Source: Wikipedia COVID-19 pandemic page\n# Target: Extracting multiple data tables from a single page layout\n# ==============================================================================\nurl &lt;- \"https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory\"\n\n\n# ==============================================================================\n# Step 2: Draft selector strategy\n# Define distinct XPaths for each target table node on the page\n# ==============================================================================\n# (Copied with DevTools -&gt; Copy -&gt; Copy XPath, as in Snippet 1)\n\n# Target the 1st matching table node (Cases table)\npath_cases &lt;- '//*[@id=\"mwAaI\"]/table'\n\n# Target the 2nd matching table node (Vaccine/Timeline table)\npath_timeline &lt;- '//*[@id=\"mwAjg\"]/table'\n\n# Define re-usable extraction pipeline function with safety checks\nscrape_by_xpath &lt;- function(html_page, xpath_string) { \n  tbl &lt;- html_page %&gt;%\n    html_element(xpath = xpath_string) %&gt;%          # Target specified table node\n    html_table(fill = TRUE) %&gt;%                       # Parse HTML table\n    as_tibble(.name_repair = \"unique\") %&gt;%            # Convert to tibble\n    clean_names()                                     # Standardize column headers\n  \n  # Safely drop empty leading index column if present\n  if (\"x1\" %in% colnames(tbl)) {\n    tbl &lt;- tbl %&gt;% select(-x1)\n  }\n  \n  return(tbl)\n}\n\n\n# ==============================================================================\n# Step 3: Fetch web page\n# Download entire raw HTML structure into local R memory ONCE\n# Passing single HTTP GET request prevents redundant network calls\n# ==============================================================================\npage &lt;- read_html(url)\n\n\n# ==============================================================================\n# Step 4: Extract & clean data\n# Execute reusable function across stored target XPaths against cached HTML\n# ==============================================================================\ncovid_tbl_1 &lt;- scrape_by_xpath(page, path_cases)\ncovid_tbl_2 &lt;- scrape_by_xpath(page, path_timeline)\n\n\n# ==============================================================================\n# Step 5: Save HTML snapshot & processed data\n# Save a single static HTML snapshot alongside individual cleaned CSV datasets\n# ==============================================================================\nwrite_html(page, \"covid_full_page_snapshot.html\")\nwrite_csv(covid_tbl_1, \"covid_cases_by_country.csv\")\nwrite_csv(covid_tbl_2, \"covid_timeline_summary.csv\")\n\n\n# ==============================================================================\n# Step 6: Record provenance\n# Log metadata, selectors used, execution timestamp, and dataset dimensions\n# ==============================================================================\ncat(\n  \"--- DATA PROVENANCE LOG ---\",\n  paste(\"Target URL   :\", url),\n  paste(\"Scraped On   :\", Sys.time()),\n  paste(\"Table 1 Path :\", path_cases),\n  paste(\"Table 1 Dims :\", nrow(covid_tbl_1), \"rows x\", ncol(covid_tbl_1), \"cols\"),\n  paste(\"Table 2 Path :\", path_timeline),\n  paste(\"Table 2 Dims :\", nrow(covid_tbl_2), \"rows x\", ncol(covid_tbl_2), \"cols\"),\n  sep = \"\\n\"\n)\n\n# Preview extracted tables\nhead(covid_tbl_1)\nhead(covid_tbl_2)\n\n\n\n\n\nSee python script file, “scraping_using_playwright.py”\nRun it in a Jupyter notebook: it uses await at the top level, which only works in a notebook.\nimport time\nfrom datetime import datetime\nfrom pathlib import Path\n\nimport pandas as pd\nfrom playwright.async_api import async_playwright\n\n\nasync def scrape_fluview():\n    # ==============================================================================\n    # Step 1: Identify source + inspect DOM\n    # Source: CDC FluView Interactive Portal\n    # Targets: Dynamic SPA app requiring headless browser automation to trigger JS modal\n    # ==============================================================================\n    url = \"https://gis.cdc.gov/grasp/fluview/main.html\"\n\n    # Set up local paths for auditability\n    save_dir = Path.cwd() / \"web_scraping\" / \"downloads\"\n    save_dir.mkdir(parents=True, exist_ok=True)\n\n    snapshot_path = save_dir / \"cdc_fluview_rendered_snapshot.html\"\n    raw_zip_path = save_dir / \"cdc_fluview_data.zip\"\n    processed_csv_path = save_dir / \"cdc_fluview_data_cleaned.csv\"\n\n    # ==============================================================================\n    # Step 2: Draft selector strategy\n    # XPaths targeting interactive buttons and inputs inside the dynamic modal\n    # ==============================================================================\n    xpath_header_download = \"/html/body/div[1]/header/div[4]/button[2]\"\n    xpath_custom_option = (\n        \"//*[@id='downloadDataBody']/ul[1]/li[2]/div/ul/li/label\"\n    )\n    xpath_by_week_tab = \"//*[@id='customDownloadPanel']/li[2]/div[1]/div/li/a\"\n    xpath_modal_download = (\n        \"//*[@id='downloadDataModal']/div/div/div[3]/button[1]\"\n    )\n\n    # ==============================================================================\n    # Step 3: Fetch web page (Dynamic rendering via Playwright)\n    # Launch Chromium browser, accept downloads, and load JS-rendered single-page app\n    # ==============================================================================\n    async with async_playwright() as p:\n        browser = await p.chromium.launch(headless=False)\n        context = await browser.new_context(accept_downloads=True)\n        page = await context.new_page()\n\n        print(\"Step 3: Navigating to CDC FluView application...\")\n        await page.goto(url, timeout=90000, wait_until=\"domcontentloaded\")\n        await page.wait_for_timeout(8000)\n\n        # ==============================================================================\n        # Step 4: Extract & clean data\n        # Execute automated DOM clicks and listen for browser download stream\n        # ==============================================================================\n        print(\"Step 4: Executing modal interactions...\")\n\n        # Click Download button in header\n        await page.locator(f\"xpath={xpath_header_download}\").click(\n            timeout=60000\n        )\n        await page.wait_for_timeout(3000)\n\n        # Select Custom Download\n        await page.locator(f\"xpath={xpath_custom_option}\").click(timeout=60000)\n        await page.wait_for_timeout(2000)\n\n        # Click By Week tab\n        await page.locator(f\"xpath={xpath_by_week_tab}\").click(timeout=60000)\n        await page.wait_for_timeout(2000)\n\n        # Set up download listener BEFORE clicking the trigger button\n        async with page.expect_download() as download_info:\n            await page.locator(f\"xpath={xpath_modal_download}\").click(\n                timeout=60000\n            )\n\n        download = await download_info.value\n\n        # ==============================================================================\n        # Step 5: Save HTML snapshot & processed data\n        # Capture rendered DOM snapshot alongside raw download payload and CSV dataset\n        # ==============================================================================\n        # Save raw HTML DOM tree snapshot\n        html_content = await page.content()\n        snapshot_path.write_text(html_content, encoding=\"utf-8\")\n\n        # Save binary download payload\n        await download.save_as(raw_zip_path)\n\n        # Clean browser environment\n        await browser.close()\n\n        # Extract/load raw CSV into pandas (CDC packages extra header rows in download)\n        df_cleaned = pd.read_csv(raw_zip_path, skiprows=1)\n        df_cleaned.columns = (\n            df_cleaned.columns.str.strip().str.lower().str.replace(\" \", \"_\")\n        )\n        df_cleaned.to_csv(processed_csv_path, index=False)\n\n        # ==============================================================================\n        # Step 6: Record provenance\n        # Document target source, selectors used, execution timestamp, and metrics\n        # ==============================================================================\n        log_entry = f\"\"\"\n--- DATA PROVENANCE LOG ---\nTarget URL      : {url}\nExecution Time  : {datetime.now().strftime(\"%Y-%m-%d %H:%M:%S\")}\nHTML Snapshot   : {snapshot_path.name}\nRaw Data File   : {raw_zip_path.name}\nCleaned Data    : {processed_csv_path.name}\nDataset Dims    : {df_cleaned.shape[0]} rows x {df_cleaned.shape[1]} cols\n---------------------------\n\"\"\"\n        print(log_entry)\n        print(f\"✅ Data processed successfully! Preview:\\n{df_cleaned.head(3)}\")\n\n\n# Jupyter execution call\nawait scrape_fluview()\n\n\n# Pass compression=None so Pandas treats it as a plain CSV text file\ncdc_fluview_data = pd.read_csv(\n    \"web_scraping/downloads/cdc_fluview_data.zip\",\n    skiprows=1,\n    compression=None\n)\n\n# Clean column headers\ncdc_fluview_data.columns = (\n    cdc_fluview_data.columns.str.strip().str.lower().str.replace(\" \", \"_\")\n)\n\n# View preview\ncdc_fluview_data.head()\n\n\n\n\n\nWrite an R script using\n\nLanguage & Tools: R (rvest, janitor, dplyr)\nScraping Method: Static web scraping\nTarget URL: https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory\nTarget Selector: XPath: //*[@id=\"mwAaI\"]/table\nGoal: Download HTML once, extract table, convert to tibble, clean column names, and drop empty index column.\n\n\n\n\n\nLanguage & Tools: Python playwright\nScraping Method: dynamic web scraping\nnavigate to URL:\n\nThen describe what you want to do and add the xpaths, for example:\n\nclick download: /html/body/div[1]/header/div[4]/button[2]\nselect custom download: //*[@id=\"downloadDataBody\"]/ul[1]/li[2]/div/ul/li/label\nclick by week: //*[@id=\"customDownloadPanel\"]/li[2]/div[1]/div/li/a\nclick download data: //*[@id=\"downloadDataModal\"]/div/div/div[3]/button[1]",
+    "crumbs": [
+      "Lessons",
+      "Web scraping: live demo code"
+    ]
+  },
+  {
+    "objectID": "web_scraping/web_scraping_demonstration.html#setup",
+    "href": "web_scraping/web_scraping_demonstration.html#setup",
+    "title": "Web Scraping Demonstrations in R",
+    "section": "",
+    "text": "Every web scraping example in this document follows the same data journey:\nTarget URL ──► HTML/DOM Response ──► Select & Target Nodes ──► Parse Text/Tables ──► Data Frame (Tibble) ──► Save Snapshot & CSV\n\n\n\n\n\n\n\nStage\nWhat happens\n\n\n\n\nTarget URL\nDefine the specific web endpoint or directory listing containing the target data\n\n\nHTML/DOM Response\nServer returns the raw markup tree parsed by read_html() or rendered via playwright\n\n\nSelect & Target Nodes\nhtml_element() or html_elements() locate nodes via XPaths or CSS selectors\n\n\nParse Text / Tables\nhtml_table(), html_text2(), or html_attr() extract structured data into memory\n\n\nData Frame / Tibble\nclean_names() and dplyr transform raw text into analysis-ready columns\n\n\nSave Snapshot & CSV\nwrite_html() preserves the raw audit snapshot; write_csv() exports processed data\n\n\n\n\n\n\n\nEach scraping script in this document follows a six-step research workflow:\n\n\n\n\n\n\n\nStep\nWhat it means\n\n\n\n\n1. Identify source + inspect DOM\nReview robots.txt, Terms of Service, and target page layout via browser Developer Tools\n\n\n2. Draft selector strategy\nIdentify unique XPaths (e.g., //*[@id=\"mwAaI\"]/table) or CSS classes (e.g., .wikitable)\n\n\n3. Request web page\nDownload HTML with read_html() or establish an ethical session using polite::bow()\n\n\n4. Extract + clean\nParse tabular nodes with html_table() and clean column names using janitor::clean_names()\n\n\n5. Save raw + processed data\nWrite static HTML snapshots to disk for auditability; export cleaned tibbles as CSVs\n\n\n6. Record provenance\nDocument the target URL, extraction selectors, scraping timestamp, and session metadata\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nTerm\nDefinition\n\n\n\n\nDOM Tree\nDocument Object Model; the hierarchical tree structure representing HTML elements\n\n\nCSS Selector\nPattern used to select elements based on tags, classes (.class), or IDs (#id)\n\n\nXPath\nLanguage for navigating XML/HTML nodes path-wise (e.g., //table[contains(@class, 'wikitable')])\n\n\nUser-Agent\nRequest header string identifying your scraping session to the web server\n\n\nrobots.txt\nText file on domain root specifying forbidden paths and crawl delays for web bots\n\n\nStatic Scraping\nExtracting data embedded directly in raw HTML returned by the initial server request\n\n\nDynamic Scraping\nAutomating a browser engine (e.g., Chromium) to render JavaScript and trigger clicks\n\n\n\n\n\n\n\nBoth approaches extract web content, but they operate at different levels of execution:\n\n\n\n\n\n\n\n\nFeature\nrvest + polite (Static)\nplaywright (Dynamic)\n\n\n\n\nExecution\nDirect HTTP fetch; parses raw HTML text\nLaunches full browser (Chromium/Firefox/WebKit)\n\n\nJavaScript\nCannot execute client-side JS\nFully executes single-page applications (SPAs)\n\n\nInteractivity\nSingle fetch; cannot click or type\nSimulates clicks, form inputs, and dropdowns\n\n\nSpeed & Overhead\nFast; minimal CPU/memory usage\nResource-intensive; spawns browser process\n\n\nrobots.txt\nObeyed automatically via polite::bow()\nMust be verified explicitly (browser bypasses it)\n\n\nFile Downloads\nPulls direct file URLs (href)\nIntercepts dynamic browser download triggers\n\n\nPrimary Use Case\nWikipedia, static news, public listings\nCDC FluView, interactive portals, complex authentication\n\n\n\n\n💡 Workshop Tip: Steps 3 and 4 directly mirror your code: read_html() pulls the entire document tree into page once, and your custom scrape_by_xpath() function executes Step 4 across multiple table paths.\n\n\n\n\n\nRun this chunk once to install all R packages used in this document. Set eval: false after the first run.\n\n# Core static scraping\ninstall.packages(\"rvest\")\n\n# Ethical scraping & robots.txt compliance\ninstall.packages(\"polite\")\ninstall.packages(\"robotstxt\")\n\n# Data manipulation and cleaning\ninstall.packages(\"tidyverse\")  # includes dplyr, tibble, readr, purrr\ninstall.packages(\"janitor\")    # clean_names() and table hygiene\n\n# Browser automation wrapper (R interface for Playwright)\n# install.packages(\"playwrightr\")\n\n# Table formatting & reporting\ninstall.packages(\"flextable\")\n\n\n\n\n\n# rvest — core Tidyverse tool for downloading HTML, navigating DOM nodes, and parsing tables\nlibrary(rvest)\n\n# polite — ethical scraping wrapper around rvest; checks robots.txt and manages crawl delays\nlibrary(polite)\n\n# robotstxt — programmatic checking of domain crawler permission rules\nlibrary(robotstxt)\n\n# Core data manipulation: dplyr (wrangling), tibble (modern data frames),\n# tidyr (reshaping), stringr (text cleanup), and the pipe operator (%&gt;%)\nlibrary(tidyverse)\n\n# janitor — automates column name cleaning (clean_names) and deduplication\nlibrary(janitor)\n\n# flextable — builds formatted, publication-ready tables in HTML/Quarto output\nlibrary(flextable)",
+    "crumbs": [
+      "Lessons",
+      "Web scraping: live demo code"
+    ]
+  },
+  {
+    "objectID": "web_scraping/web_scraping_demonstration.html#static-scraping-example",
+    "href": "web_scraping/web_scraping_demonstration.html#static-scraping-example",
+    "title": "Web Scraping Demonstrations in R",
+    "section": "",
+    "text": "library(rvest)\nlibrary(xml2)\nlibrary(janitor)\nlibrary(dplyr)\n\n# ==============================================================================\n# Step 1: Identify source + inspect DOM\n# Source: Wikipedia COVID-19 pandemic page\n# Target: Primary \"Cases by country and territory\" table\n# ==============================================================================\nurl &lt;- \"https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory\"\n\n\n# ==============================================================================\n# Step 2: Draft selector strategy\n# In DevTools, right-click the &lt;table&gt; tag -&gt; Copy -&gt; Copy XPath (not \"Copy full XPath\").\n# The short XPath starts from the nearest element with an ID, so it still works\n# when the rest of the page layout changes. The full XPath (/html/body/div[3]/...)\n# describes the page after the browser has run its JavaScript, and often finds\n# nothing in the raw HTML that read_html() downloads.\n# ==============================================================================\ntarget_xpath &lt;- '//*[@id=\"mwAaI\"]/table'\n\n# If Wikipedia edits the page and the ID above changes, anchor on the section\n# heading instead, which changes much less often:\n# target_xpath &lt;- '//*[@id=\"Total_cases,_deaths,_and_death_rates_by_country\"]/ancestor::section[1]//table[contains(@class,\"wikitable\")]'\n\n# ==============================================================================\n# Step 3: Fetch web page\n# Download entire raw HTML structure of the web page into R memory ONCE\n# ==============================================================================\npage &lt;- read_html(url)\n\n\n# ==============================================================================\n# Step 4: Extract & clean data\n# Target node -&gt; parse HTML table -&gt; format headers -&gt; safely drop index column\n# ==============================================================================\ncovid_tbl &lt;- page %&gt;%\n  # Target element node using resilient section-anchor XPath\n  html_element(xpath = target_xpath) %&gt;% \n  \n  # Convert HTML table into an R data frame, filling missing cells with NA\n  html_table(fill = TRUE) %&gt;% \n  \n  # Convert to tibble, repairing non-unique column names\n  as_tibble(.name_repair = \"unique\") %&gt;% \n  \n  # Standardize column headers to clean snake_case\n  clean_names()\n\n# Safely drop empty leading index column if present\nif (\"x1\" %in% colnames(covid_tbl)) {\n  covid_tbl &lt;- covid_tbl %&gt;% select(-x1)\n}\n\n\n# ==============================================================================\n# Step 5: Save HTML snapshot & processed data\n# Save raw static HTML snapshot for auditability alongside processed dataset\n# ==============================================================================\n# Preserves source HTML offline so data extraction can be audited, re-parsed, or debugged if the live site changes \n# save in working directory\nwrite_html(page, \"covid_page_snapshot.html\")\n\n\n# ==============================================================================\n# Step 6: Record provenance\n# Log metadata, execution timestamp, and dataset dimensions\n# ==============================================================================\ncat(\n  \"--- DATA PROVENANCE LOG ---\",\n  paste(\"Target URL :\", url),\n  paste(\"XPath Used :\", target_xpath),\n  paste(\"Scraped On :\", Sys.time()),\n  paste(\"Dimensions :\", nrow(covid_tbl), \"rows x\", ncol(covid_tbl), \"cols\"),\n  sep = \"\\n\"\n)\n\n# Preview extracted data\nhead(covid_tbl, 20)\n\n\n\n\n\nlibrary(rvest)\nlibrary(xml2)\nlibrary(janitor)\nlibrary(dplyr)\nlibrary(readr)\n\n# ==============================================================================\n# Step 1: Identify source + inspect DOM\n# Source: Wikipedia COVID-19 pandemic page\n# Target: Extracting multiple data tables from a single page layout\n# ==============================================================================\nurl &lt;- \"https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory\"\n\n\n# ==============================================================================\n# Step 2: Draft selector strategy\n# Define distinct XPaths for each target table node on the page\n# ==============================================================================\n# (Copied with DevTools -&gt; Copy -&gt; Copy XPath, as in Snippet 1)\n\n# Target the 1st matching table node (Cases table)\npath_cases &lt;- '//*[@id=\"mwAaI\"]/table'\n\n# Target the 2nd matching table node (Vaccine/Timeline table)\npath_timeline &lt;- '//*[@id=\"mwAjg\"]/table'\n\n# Define re-usable extraction pipeline function with safety checks\nscrape_by_xpath &lt;- function(html_page, xpath_string) { \n  tbl &lt;- html_page %&gt;%\n    html_element(xpath = xpath_string) %&gt;%          # Target specified table node\n    html_table(fill = TRUE) %&gt;%                       # Parse HTML table\n    as_tibble(.name_repair = \"unique\") %&gt;%            # Convert to tibble\n    clean_names()                                     # Standardize column headers\n  \n  # Safely drop empty leading index column if present\n  if (\"x1\" %in% colnames(tbl)) {\n    tbl &lt;- tbl %&gt;% select(-x1)\n  }\n  \n  return(tbl)\n}\n\n\n# ==============================================================================\n# Step 3: Fetch web page\n# Download entire raw HTML structure into local R memory ONCE\n# Passing single HTTP GET request prevents redundant network calls\n# ==============================================================================\npage &lt;- read_html(url)\n\n\n# ==============================================================================\n# Step 4: Extract & clean data\n# Execute reusable function across stored target XPaths against cached HTML\n# ==============================================================================\ncovid_tbl_1 &lt;- scrape_by_xpath(page, path_cases)\ncovid_tbl_2 &lt;- scrape_by_xpath(page, path_timeline)\n\n\n# ==============================================================================\n# Step 5: Save HTML snapshot & processed data\n# Save a single static HTML snapshot alongside individual cleaned CSV datasets\n# ==============================================================================\nwrite_html(page, \"covid_full_page_snapshot.html\")\nwrite_csv(covid_tbl_1, \"covid_cases_by_country.csv\")\nwrite_csv(covid_tbl_2, \"covid_timeline_summary.csv\")\n\n\n# ==============================================================================\n# Step 6: Record provenance\n# Log metadata, selectors used, execution timestamp, and dataset dimensions\n# ==============================================================================\ncat(\n  \"--- DATA PROVENANCE LOG ---\",\n  paste(\"Target URL   :\", url),\n  paste(\"Scraped On   :\", Sys.time()),\n  paste(\"Table 1 Path :\", path_cases),\n  paste(\"Table 1 Dims :\", nrow(covid_tbl_1), \"rows x\", ncol(covid_tbl_1), \"cols\"),\n  paste(\"Table 2 Path :\", path_timeline),\n  paste(\"Table 2 Dims :\", nrow(covid_tbl_2), \"rows x\", ncol(covid_tbl_2), \"cols\"),\n  sep = \"\\n\"\n)\n\n# Preview extracted tables\nhead(covid_tbl_1)\nhead(covid_tbl_2)",
+    "crumbs": [
+      "Lessons",
+      "Web scraping: live demo code"
+    ]
+  },
+  {
+    "objectID": "web_scraping/web_scraping_demonstration.html#dynamic-scraping-example-using-python",
+    "href": "web_scraping/web_scraping_demonstration.html#dynamic-scraping-example-using-python",
+    "title": "Web Scraping Demonstrations in R",
+    "section": "",
+    "text": "See python script file, “scraping_using_playwright.py”\nRun it in a Jupyter notebook: it uses await at the top level, which only works in a notebook.\nimport time\nfrom datetime import datetime\nfrom pathlib import Path\n\nimport pandas as pd\nfrom playwright.async_api import async_playwright\n\n\nasync def scrape_fluview():\n    # ==============================================================================\n    # Step 1: Identify source + inspect DOM\n    # Source: CDC FluView Interactive Portal\n    # Targets: Dynamic SPA app requiring headless browser automation to trigger JS modal\n    # ==============================================================================\n    url = \"https://gis.cdc.gov/grasp/fluview/main.html\"\n\n    # Set up local paths for auditability\n    save_dir = Path.cwd() / \"web_scraping\" / \"downloads\"\n    save_dir.mkdir(parents=True, exist_ok=True)\n\n    snapshot_path = save_dir / \"cdc_fluview_rendered_snapshot.html\"\n    raw_zip_path = save_dir / \"cdc_fluview_data.zip\"\n    processed_csv_path = save_dir / \"cdc_fluview_data_cleaned.csv\"\n\n    # ==============================================================================\n    # Step 2: Draft selector strategy\n    # XPaths targeting interactive buttons and inputs inside the dynamic modal\n    # ==============================================================================\n    xpath_header_download = \"/html/body/div[1]/header/div[4]/button[2]\"\n    xpath_custom_option = (\n        \"//*[@id='downloadDataBody']/ul[1]/li[2]/div/ul/li/label\"\n    )\n    xpath_by_week_tab = \"//*[@id='customDownloadPanel']/li[2]/div[1]/div/li/a\"\n    xpath_modal_download = (\n        \"//*[@id='downloadDataModal']/div/div/div[3]/button[1]\"\n    )\n\n    # ==============================================================================\n    # Step 3: Fetch web page (Dynamic rendering via Playwright)\n    # Launch Chromium browser, accept downloads, and load JS-rendered single-page app\n    # ==============================================================================\n    async with async_playwright() as p:\n        browser = await p.chromium.launch(headless=False)\n        context = await browser.new_context(accept_downloads=True)\n        page = await context.new_page()\n\n        print(\"Step 3: Navigating to CDC FluView application...\")\n        await page.goto(url, timeout=90000, wait_until=\"domcontentloaded\")\n        await page.wait_for_timeout(8000)\n\n        # ==============================================================================\n        # Step 4: Extract & clean data\n        # Execute automated DOM clicks and listen for browser download stream\n        # ==============================================================================\n        print(\"Step 4: Executing modal interactions...\")\n\n        # Click Download button in header\n        await page.locator(f\"xpath={xpath_header_download}\").click(\n            timeout=60000\n        )\n        await page.wait_for_timeout(3000)\n\n        # Select Custom Download\n        await page.locator(f\"xpath={xpath_custom_option}\").click(timeout=60000)\n        await page.wait_for_timeout(2000)\n\n        # Click By Week tab\n        await page.locator(f\"xpath={xpath_by_week_tab}\").click(timeout=60000)\n        await page.wait_for_timeout(2000)\n\n        # Set up download listener BEFORE clicking the trigger button\n        async with page.expect_download() as download_info:\n            await page.locator(f\"xpath={xpath_modal_download}\").click(\n                timeout=60000\n            )\n\n        download = await download_info.value\n\n        # ==============================================================================\n        # Step 5: Save HTML snapshot & processed data\n        # Capture rendered DOM snapshot alongside raw download payload and CSV dataset\n        # ==============================================================================\n        # Save raw HTML DOM tree snapshot\n        html_content = await page.content()\n        snapshot_path.write_text(html_content, encoding=\"utf-8\")\n\n        # Save binary download payload\n        await download.save_as(raw_zip_path)\n\n        # Clean browser environment\n        await browser.close()\n\n        # Extract/load raw CSV into pandas (CDC packages extra header rows in download)\n        df_cleaned = pd.read_csv(raw_zip_path, skiprows=1)\n        df_cleaned.columns = (\n            df_cleaned.columns.str.strip().str.lower().str.replace(\" \", \"_\")\n        )\n        df_cleaned.to_csv(processed_csv_path, index=False)\n\n        # ==============================================================================\n        # Step 6: Record provenance\n        # Document target source, selectors used, execution timestamp, and metrics\n        # ==============================================================================\n        log_entry = f\"\"\"\n--- DATA PROVENANCE LOG ---\nTarget URL      : {url}\nExecution Time  : {datetime.now().strftime(\"%Y-%m-%d %H:%M:%S\")}\nHTML Snapshot   : {snapshot_path.name}\nRaw Data File   : {raw_zip_path.name}\nCleaned Data    : {processed_csv_path.name}\nDataset Dims    : {df_cleaned.shape[0]} rows x {df_cleaned.shape[1]} cols\n---------------------------\n\"\"\"\n        print(log_entry)\n        print(f\"✅ Data processed successfully! Preview:\\n{df_cleaned.head(3)}\")\n\n\n# Jupyter execution call\nawait scrape_fluview()\n\n\n# Pass compression=None so Pandas treats it as a plain CSV text file\ncdc_fluview_data = pd.read_csv(\n    \"web_scraping/downloads/cdc_fluview_data.zip\",\n    skiprows=1,\n    compression=None\n)\n\n# Clean column headers\ncdc_fluview_data.columns = (\n    cdc_fluview_data.columns.str.strip().str.lower().str.replace(\" \", \"_\")\n)\n\n# View preview\ncdc_fluview_data.head()",
+    "crumbs": [
+      "Lessons",
+      "Web scraping: live demo code"
+    ]
+  },
+  {
+    "objectID": "web_scraping/web_scraping_demonstration.html#using-yales-clarity-platform-to-help-you-generate-code",
+    "href": "web_scraping/web_scraping_demonstration.html#using-yales-clarity-platform-to-help-you-generate-code",
+    "title": "Web Scraping Demonstrations in R",
+    "section": "",
+    "text": "Write an R script using\n\nLanguage & Tools: R (rvest, janitor, dplyr)\nScraping Method: Static web scraping\nTarget URL: https://en.wikipedia.org/wiki/COVID-19_pandemic_by_country_and_territory\nTarget Selector: XPath: //*[@id=\"mwAaI\"]/table\nGoal: Download HTML once, extract table, convert to tibble, clean column names, and drop empty index column.\n\n\n\n\n\nLanguage & Tools: Python playwright\nScraping Method: dynamic web scraping\nnavigate to URL:\n\nThen describe what you want to do and add the xpaths, for example:\n\nclick download: /html/body/div[1]/header/div[4]/button[2]\nselect custom download: //*[@id=\"downloadDataBody\"]/ul[1]/li[2]/div/ul/li/label\nclick by week: //*[@id=\"customDownloadPanel\"]/li[2]/div[1]/div/li/a\nclick download data: //*[@id=\"downloadDataModal\"]/div/div/div[3]/button[1]",
+    "crumbs": [
+      "Lessons",
+      "Web scraping: live demo code"
+    ]
+  },
+  {
+    "objectID": "APIs/API_demonstration.html",
+    "href": "APIs/API_demonstration.html",
+    "title": "API Demonstrations in R",
+    "section": "",
+    "text": "This document demonstrates several approaches for accessing data through APIs using R.\nThe examples use different methods, including R packages that provide API access, direct HTTP requests with httr and httr2, JSON parsing, API endpoint discovery, and APIs that require authentication.\n\n\n\n\n\nEvery API example in this document follows the same data journey:\nAPI Request ──► JSON / XML Response ──► Parse & Flatten in R ──► Data Frame (Tibble) ──► (Optional) Save as CSV\n\n\n\n\n\n\n\nStage\nWhat happens\n\n\n\n\nAPI Request\nR sends an HTTP GET (or POST) to an endpoint URL with query parameters\n\n\nJSON / XML Response\nThe server returns a hierarchical, nested key-value structure optimized for web transit\n\n\nParse & Flatten\nfromJSON() or resp_body_json() converts the nested structure into rows and columns\n\n\nData Frame / Tibble\nThe result is a standard R table you can immediately use with dplyr or ggplot2\n\n\nSave as CSV\nwrite_csv() exports a flat, plain-text file you can open in Excel or share with collaborators\n\n\n\n\n\n\nEach example also follows a six-step research workflow:\n\n\n\n\n\n\n\nStep\nWhat it means\n\n\n\n\n1. Identify source + documentation\nFind the API docs before writing any code; understand endpoints, parameters, and rate limits\n\n\n2. Draft a query\nDefine fields, filters, and time range explicitly as named parameters\n\n\n3. Request data\nSend the request; respect rate limits; use timeouts and error handling\n\n\n4. Validate + clean\nCheck dimensions, types, and missing values before using the data\n\n\n5. Save raw + processed data\nSave the raw API response immediately; save the cleaned version separately\n\n\n6. Record provenance\nDocument the URL, parameters, date pulled, and API version\n\n\n\n\n\n\n\n\n\n\n\n\n\nTerm\nDefinition\n\n\n\n\nEndpoint\nThe URL for a specific resource (e.g., /studies, /drug/event.json)\n\n\nMethod\nGET retrieves data; POST submits a query or creates a record\n\n\nParameters\nFilters appended to the URL (e.g., ?year=2023&state=CT)\n\n\nAuth\nAPI key, bearer token, or OAuth credential required by some APIs\n\n\nRate limits\nMaximum requests allowed per second or per day\n\n\nPagination\npage, offset, or cursor parameters for retrieving large result sets in chunks\n\n\nResponse\nJSON or XML returned by the server, parsed into a table in R\n\n\n\n\n\n\nBoth packages send HTTP requests and handle responses. They differ in style:\n\n\n\n\n\n\n\n\n\nhttr\nhttr2\n\n\n\n\nStyle\nSingle-function call\nPipe-based, build then send\n\n\nRequest\nGET(url, query = list(...))\nrequest(url) \\|&gt; req_url_query(...) \\|&gt; req_perform()\n\n\nExtract\ncontent(resp, as = \"text\")\nresp_body_string() or resp_body_json()\n\n\nError check\nstop_for_status(resp)\nreq_error() or automatic\n\n\nRate limiting\nManual Sys.sleep()\nreq_throttle() built in\n\n\nPagination\nManual loop\nreq_perform_iterative() built in\n\n\nStatus\nOlder; widely used\nCurrent recommended approach\n\n\n\n\n\n\n\nRun this chunk once to install all packages used in this document. Set eval: false after the first run to avoid reinstalling on every render.\n\n# NHANES data access\ninstall.packages(\"nhanesA\")\n\n# Data manipulation and piping\ninstall.packages(\"tidyverse\")  # includes dplyr, tibble, and the pipe operator\n\n# HTTP requests (older, widely used interface)\ninstall.packages(\"httr\")\n\n# HTTP requests (modern, pipe-friendly interface)\ninstall.packages(\"httr2\")\n\n# JSON parsing\ninstall.packages(\"jsonlite\")\n\n# Census / ACS data access\ninstall.packages(\"tidycensus\")\n\n# Table formatting\ninstall.packages(\"flextable\")\n\n# Number formatting (e.g., comma-separated values)\ninstall.packages(\"scales\")\n\n\n\n\n\n# NHANES survey data — provides nhanes() to pull NHANES modules by cycle code\nlibrary(nhanesA)\n\n# Core data manipulation: dplyr (wrangling), tibble (modern data frames),\n# tidyr (reshaping), and the pipe operator (%&gt;%)\nlibrary(tidyverse)\n\n# httr — makes HTTP GET/POST requests; used for ClinicalTrials.gov and OpenFDA\nlibrary(httr)\n\n# httr2 — modern, pipe-friendly HTTP client; used for PubMed and Socrata APIs\nlibrary(httr2)\n\n# jsonlite — parses JSON strings returned by APIs into R data frames/lists\nlibrary(jsonlite)\n\n# tidycensus — wraps the U.S. Census Bureau API (ACS, Decennial); handles\n# geography, variable lookup, and API key management\nlibrary(tidycensus)\n\n# flextable — builds formatted, publication-ready tables in HTML/Word output\nlibrary(flextable)\n\n# scales — formats numbers (e.g., comma() for thousands separators,\n# percent() for percentage strings)\nlibrary(scales)\n\n\n\n\n\n\n\n\n\nPackage: https://cran.r-project.org/package=nhanesA\nData dictionary search: https://wwwn.cdc.gov/nchs/nhanes/\n\n\n\n\n\nQuick access to NHANES data\nAccess the most recent survey cycles without manual file downloads\nMerge datasets across modules using participant ID (SEQN)\n\nNHANES organizes data into separate modules, including demographics, laboratories, examinations, and questionnaires. These modules can be linked using the participant ID (SEQN).\n\n\n\n\n# Pull the NHANES demographics module for the 2021–2023 survey cycle.\n# The cycle suffix \"L\" identifies the 2021–2023 data release.\nnhanes_demo &lt;- nhanes(\"DEMO_L\")\n\n# Pull the body measurements (BMX) module for the same cycle.\n# This contains height, weight, BMI, and related physical measurements.\nnhanes_bmx &lt;- nhanes(\"BMX_L\")\n\nThe syntax changes across APIs, but the overall research workflow is remarkably similar.\n\n\n\nDatasets can be merged using SEQN to create an analysis-ready table.\nA data dictionary is important for understanding variable names and coding. For example, RIAGENDR is coded as 1 for male and 2 for female.\n\nnhanes_data &lt;- nhanes_demo %&gt;%\n  # Join the body measurements module to the demographics module on the\n  # shared participant ID (SEQN). left_join keeps all demographic rows\n  # even if a BMX record is missing for that participant.\n  left_join(nhanes_bmx, by = \"SEQN\") %&gt;%\n  # Retain only the four variables needed for this example:\n  # SEQN = participant ID, RIDAGEYR = age in years,\n  # RIAGENDR = sex (1 = Male, 2 = Female), BMXBMI = body mass index\n  select(SEQN, RIDAGEYR, RIAGENDR, BMXBMI)\n\n# Preview the first six rows to verify the join and variable selection\nhead(nhanes_data)\n\n\n\n\n\n\n\n\n\nE-utilities overview: https://www.ncbi.nlm.nih.gov/books/NBK25497/\ne-search endpoint: https://www.ncbi.nlm.nih.gov/books/NBK25499/\nUsage guidelines: 10 requests/second with an API key; 3/second without\n\n\n\n\n\nReproducible literature searches\nRetrieve PMIDs and basic citation metadata\nBuild screening datasets\n\nNCBI requests should follow usage guidelines and include reasonable request pacing for large retrieval jobs.\n\n\n\n\n\n\n\n\n\n\nWorkflow concept\nThis example\n\n\n\n\nEndpoint\nhttps://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi\n\n\nMethod\nGET\n\n\nParameters\ndb, term (MeSH + date filter), retmode, retmax\n\n\nAuth\nNone required for low-volume use\n\n\nRate limit\n3 requests/second without key; 10/second with key\n\n\nPagination\nretstart + retmax for batching\n\n\nResponse\nJSON → parsed to list → PMIDs extracted to tibble\n\n\nPackage\nhttr2 (pipe-based: build → configure → send → extract)\n\n\n\n\n\n\n\nThe goal is simple: ask PubMed “give me IDs for up to 20 asthma articles from 2023” and turn the answer into an R table.\n\n\n\nlibrary(httr2)\n\n# Step 1 — Define where to send the request\n# Base URL for the NCBI E-utilities esearch endpoint,\n# which returns a list of matching PubMed IDs (PMIDs)\nbase &lt;- \"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi\"\n\n#Step 2 — Define what you are asking for\n# Define the search parameters:\n# db       = target database (pubmed)\n# term     = MeSH-tagged search term filtered to 2023 publications\n# retmode  = return format (json)\n# retmax   = maximum number of PMIDs to return\nquery &lt;- list(\n  db = \"pubmed\",\n  term = \"asthma[MeSH Terms] AND 2023[pdat]\",\n  retmode = \"json\",\n  retmax = 20\n)\n\n# Step 3 — Build and send the request\n# Build and send the HTTP GET request, appending the query parameters to the URL\nresp &lt;- request(base) |&gt;      # Creates a request object pointed at the endpoint URL — nothing is sent yet\n  req_url_query(!!!query) |&gt;  # splice the named list into individual URL params\n  req_perform()               # Actually sends the GET request over the internet and returns the server's response\n\n# Step 4 — Extract the response body - JSON\n# Extract the raw response body as a character string\ntxt &lt;- resp |&gt;\n  resp_body_string()\n\n# Step 5 — Parse and Flatten the JSON into R\n# Parse the JSON string into a nested R list\ndat &lt;- fromJSON(txt)\n\n# Step 6 — Navigate to the IDs\n\n# The parsed list has a specific structure. You drill into it like folders:\n# dat\n# └── $esearchresult\n#       └── $idlist ← this is the vector of PubMed IDs\n\npmids &lt;- dat$esearchresult$idlist\n\n# 7 - Display the PMIDs as a tidy one-column tibble\ntibble(pmid = pmids)\n\n\n\n\n\n\n\n\n\nAPI v2 reference: https://clinicaltrials.gov/data-api/api\nField definitions: https://clinicaltrials.gov/data-api/about-api/study-data-structure\n\n\n\n\n\nFind trials by condition, intervention, or location\nCompare outcomes reporting patterns\nConduct sponsor or phase landscape scans\n\n\n\n\n\n\n\n\n\n\n\nWorkflow concept\nThis example\n\n\n\n\nEndpoint\nhttps://clinicaltrials.gov/api/v2/studies\n\n\nMethod\nGET\n\n\nParameters\nquery.term (free text), pageSize\n\n\nAuth\nNone\n\n\nRate limit\nReasonable use; no published hard limit\n\n\nPagination\npageToken returned in response for next page\n\n\nResponse\nJSON → flatten → tibble\n\n\nPackage\nhttr (single-call style: GET() → content() → fromJSON())\n\n\n\n\n\n\nThe goal is simple: ask ClinicalTrials.gov “give me 10 studies about diabetes” and turn the answer into an R table.\n\n\n\n\n# Step 1 — Define where to send the request\n# Base URL for the ClinicalTrials.gov v2 REST API studies endpoint\nurl &lt;- \"https://clinicaltrials.gov/api/v2/studies\"\n\n# Step 2 — Define what you are asking for\n# Query parameters:\n# query.term = free-text search term (diabetes)\n# pageSize   = number of study records to return per page\nparams &lt;- list(\n  `query.term` = \"diabetes\",\n  pageSize = 10\n)\n\n# Step 3 — Build and send the request\n# Send a GET request with a 30-second timeout to avoid hanging on slow responses\nresp &lt;- GET(url, query = params, timeout(30))\n\n# Raise an error if the server returned an HTTP error status (4xx or 5xx)\nstop_for_status(resp)\n\n# Step 4 — Extract the response body - JSON\n# Extract the response body as a UTF-8 text string\ndata_txt &lt;- content(resp, as = \"text\", encoding = \"UTF-8\")\n\n# Step 5 — Parse and Flatten the JSON into R\n# Parse the JSON text into a nested R list; flatten = TRUE collapses\n# nested lists into dot-separated column names for easier data-frame use\ndata &lt;- fromJSON(data_txt, flatten = TRUE)\n\n# Step 6 — Navigate to the studies\n\n# The parsed list has a specific structure. You drill into it like folders:\n# data\n#  └── $studies  ← this is the array of study records\n\n# Isolate the studies array from the parsed response\nstudies &lt;- data$studies\n\n# Step 7 — Display as a tidy tibble\n# Convert the list to a tibble for easier inspection and downstream wrangling\nstudies_tbl &lt;- as_tibble(studies)\n\n# Print a compact overview of all columns and their types\nstr(studies_tbl)\n\n\n\n\n\n\n\n\n\nAPI overview: https://open.fda.gov/apis/\nDrug event endpoint: https://open.fda.gov/apis/drug/event/\nNo API key required for low-volume use (40 requests/minute; 1,000/day)\n\n\n\n\n\nPharmacovigilance exploration\nCounts over time, stratified by drug or product fields\nTeaching filtering and pagination\n\n\n\n\n\n\n\nWorkflow concept\nThis example\n\n\n\n\nEndpoint\nhttps://api.fda.gov/drug/event.json\n\n\nMethod\nGET\n\n\nParameters\nsearch (field-specific filter), limit\n\n\nAuth\nNone for low-volume use\n\n\nRate limit\n40 requests/minute; 1,000/day without key\n\n\nPagination\nskip + limit for paging through results\n\n\nResponse\nJSON → flatten → tibble\n\n\nPackage\nhttr\n\n\n\n\n\n\nThe goal is simple: ask OpenFDA “give me 5 adverse event reports mentioning metformin” and turn the answer into an R table.\n\n\n\n\n# Step 1 — Define where to send the request\n# Base URL for the FDA adverse drug event (FAERS) endpoint\nbase &lt;- \"https://api.fda.gov/drug/event.json\"\n\n# Step 2 — Define what you are asking for\n# Query parameters:\n# search = filter to reports mentioning metformin as the medicinal product\n# limit  = return only 5 records for this demonstration\nparams &lt;- list(\n  search = 'patient.drug.medicinalproduct:\"metformin\"',\n  limit = 5\n)\n\n# Step 3 — Build and send the request\n# Send the GET request with a 30-second timeout\nresp &lt;- GET(base, query = params, timeout(30))\n\n# Raise an error if the server returned an HTTP error status (4xx or 5xx)\nstop_for_status(resp)\n\n# Step 4 — Extract the response body - JSON\n# Decode the response body to a UTF-8 text string\ntxt &lt;- content(resp, as = \"text\", encoding = \"UTF-8\")\n\n# Step 5 — Parse and Flatten the JSON into R\n# Parse the JSON; flatten = TRUE converts nested fields to dot-notation columns\nj &lt;- fromJSON(txt, flatten = TRUE)\n\n# Step 6 — Navigate to the results\n# The parsed list has a specific structure. You drill into it like folders:\n#  j \n#  └── $results  ← this is the array of adverse event reports\nfda_df &lt;- j$results %&gt;%\n  as_tibble()\n\n# Step 7 — Display as a tidy tibble\n# Uncomment the line below to print all rows and columns for inspection\n# print(fda_df, n = 5, width = Inf)\n\n\n\n\n\n\nMany government open-data portals use Socrata APIs. These APIs support SQL-like query parameters such as $select, $where, and $limit.\nSocrata API documentation: https://dev.socrata.com/docs/endpoints\n\n\n\nQuick access to many public datasets\nTeach select, where, and limit query patterns\nDiscover datasets through an API catalog\n\n\n\n\n\n\n\n\n\n\n\nWorkflow concept\nThis example\n\n\n\n\nEndpoint\nDiscovery catalog + individual dataset endpoint\n\n\nMethod\nGET\n\n\nParameters\nq, domains (catalog); $limit (SODA)\n\n\nAuth\nNone for public datasets\n\n\nRate limit\nThrottled for unauthenticated requests; app token recommended for bulk use\n\n\nPagination\n$limit + $offset\n\n\nResponse\nJSON → flatten → tibble\n\n\nPackage\nhttr2\n\n\n\n\n\n\nThe goal is simple: ask the Socrata catalog “find me a CDC dataset about COVID-19 hospitalization”, then pull 100 records from it and turn the answer into an R table.\n\n\n\nThe following example searches the Socrata catalog for a dataset related to COVID-19 hospitalization surveillance.\nThe q parameter and domain filter can be changed to search for other datasets.\n\n# Step 1 — Define where to send the request\n# Socrata discovery catalog endpoint\nbase &lt;- \"https://api.us.socrata.com/api/catalog/v1\"\n\n# Step 2 — Define what you are asking for\n# Query parameters:\n# q       = free-text search term\n# domains = restrict results to the CDC data portal\nquery &lt;- list(\n  q       = \"COVID-19 hospitalization\",\n  domains = \"data.cdc.gov\"\n)\n\n# Step 3 — Build and send the request\ncatalog &lt;- request(base) |&gt;\n  req_url_query(\n    q       = query$q,\n    domains = query$domains\n  ) |&gt;\n  req_perform() |&gt;   # send the request\n  resp_body_json()   # parse the JSON response body into an R list\n\n# Step 4 — Extract the response body - JSON\n# Extract the top result from the catalog response\ntop_result &lt;- catalog$results[[1]]\n\n# Step 5 — Navigate to the dataset identifier\n# The parsed list has a specific structure. You drill into it like folders:\n# catalog\n#  └── $results\n#        └── [[1]]\n#              └── $resource\n#                    └── $id  ← the 4x4 dataset identifier\ntop_result$resource$id\n\n\n\n\n\nThe goal is simple: take the endpoint URL found in the previous step, ask it for 100 records, and turn the answer into an R table.\n\n\nReplace the dataset endpoint with the endpoint identified in the previous step. Many Socrata datasets support SODA queries through parameters such as $select, $where, and $limit.\n\n# Step 1 — Define where to send the request\n# Use the dataset identifier from the catalog search above to construct the endpoint\nendpoint &lt;- \"https://data.cdc.gov/resource/akn2-qxic.json\"\n\n# Step 2 — Define what you are asking for\n# $limit = number of records to return (SODA pagination parameter)\nquery &lt;- list(`$limit` = 100)\n\n# Step 3 — Build and send the request\nresp &lt;- request(endpoint) |&gt;\n  req_url_query(`$limit` = query$`$limit`) |&gt;\n  req_perform()\n\n# Step 4 — Extract the response body - JSON\n# Step 5 — Parse and Flatten the JSON into R\nresp_dat &lt;- fromJSON(\n  resp_body_string(resp),  # extract response as a character string first\n  flatten = TRUE           # collapse nested JSON objects into dot-notation columns\n)\n\n# Step 6 — Navigate to the results\n# resp_dat is already a flat data frame after fromJSON with flatten = TRUE\n\n# Step 7 — Display as a tidy tibble\nas_tibble(resp_dat)\n\n\n\n\n\n\n\n\nCensus and American Community Survey (ACS) data can provide population context for health research, including:\n\nDenominators for calculating rates\nSocial determinants proxies such as income, education, housing, and internet access\nFine-grained geographies such as tract, ZIP, county, ZCTA, and PUMA\nAnnual or 5-year series for trend analysis\n\nCommon outputs include:\n\nTract, county, and state estimates\nACS variables and multi-year estimates\n\n\n\n\nThe Census API provides a free API key.\nRequest a key:\nhttps://api.census.gov/data/key_signup.html\nStore the key safely, for example in ~/.Renviron:\nCENSUS_API_KEY=YOUR_KEY_HERE\n\n\n\nThe following opens the .Renviron file so the key can be added.\n\n# Open the user-level .Renviron file in the RStudio editor.\n# Add the line: CENSUS_API_KEY=YOUR_KEY_HERE\n# Save and restart R for the variable to take effect.\nfile.edit(\"~/.Renviron\")\n\n\n\n\n\n# Read the key from the CENSUS_API_KEY environment variable set in .Renviron.\n# install = TRUE writes the key to .Renviron permanently so it persists\n# across R sessions. overwrite = TRUE replaces any previously stored key.\ncensus_api_key(\n  Sys.getenv(\"CENSUS_API_KEY\"),\n  install = TRUE,\n  overwrite = TRUE\n)\n\n\n\n\nThis example retrieves a basic population estimate for all states in 2023.\n\n# Retrieve ACS 5-year total population estimates (variable B01001_001)\n# for every U.S. state using the 2023 ACS release.\n# This is a quick smoke-test to confirm the API key is working correctly.\nget_acs(\n  geography = \"state\",      # geographic level: one row per state\n  variables = \"B01001_001\", # total population estimate\n  year = 2023               # most recent ACS 5-year release available\n)\n\n\n\n\n\n\n\nFor example:\nB01001_001\n\nB or C = table type\n01 = broad subject code\n001 = table sequence number\n_001 = specific line number within the table\n\nLine _001 is commonly the total for the table.\n\n\n\n\n\n\n\n\n\n\n\nPrefix\nSubject Category\nExample Metrics\n\n\n\n\n01–07\nCore Demographics\nAge, sex, race, ancestry, place of birth\n\n\n08\nCommuting & Transit\nRemote work, public transit, travel times\n\n\n11–13\nHouseholds & Family\nMarital status, family size, fertility\n\n\n15–16\nEducation & Language\nEducational attainment, languages spoken\n\n\n17–23\nEconomics & Finance\nIncome, poverty, employment\n\n\n24\nOccupations\nEmployment fields\n\n\n25\nHousing & Living\nRent, home values, utilities, vehicles\n\n\n\nA useful resource for searching Census tables is:\nhttps://censusreporter.org\n\n\n\n\nB19013 — Median Household Income\nB17001 — Poverty Status by Sex and Age\nB15003 — Educational Attainment\nB25077 — Median Value of Owner-Occupied Housing Units\nB28002 — Household Internet Access\nB25044 — Vehicles Available per Household\n\n\n\n\n\nB tables (Base Tables): Provide more detailed row-level breakdowns.\nC tables (Collapsed Tables): Provide broader, collapsed categories.\n\nIf a B table contains more detail than needed, the corresponding C table can sometimes provide a simpler overview.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nWorkflow concept\nThis example\n\n\n\n\nEndpoint\nCensus Bureau ACS API (wrapped by tidycensus)\n\n\nMethod\nGET (handled internally by tidycensus)\n\n\nParameters\ngeography, variables, state, year, survey\n\n\nAuth\nCensus API key stored in .Renviron\n\n\nRate limit\nGenerous; key required for sustained use\n\n\nPagination\nHandled automatically by tidycensus\n\n\nResponse\nParsed directly to tibble by tidycensus\n\n\nPackage\ntidycensus\n\n\n\nThis example retrieves population estimates by county in Connecticut and calculates each county’s percentage of the state population.\n\n# Step 1 — Authenticate\n# Re-register the Census API key for this session (required if the environment\n# variable was set after the initial R session start)\ncensus_api_key(Sys.getenv(\"CENSUS_API_KEY\"))\n\n# Step 2 — Define what you are asking for and send the request\n# tidycensus handles the request, response parsing, and tibble conversion internally\n# geography = geographic level: one row per county\n# variables = B01001_001 is the total population estimate\n# state     = filter to Connecticut counties only\n# year      = ACS release year\n# survey    = acs5 uses the 5-year estimates for greater reliability\ncounty_pop &lt;- get_acs(\n  geography = \"county\",\n  variables = \"B01001_001\",\n  state     = \"CT\",\n  year      = 2023,\n  survey    = \"acs5\"\n)\n\n# Step 3 — Clean and calculate\ncounty_pop &lt;- county_pop %&gt;%\n  mutate(\n    # Strip the boilerplate suffix from county names for cleaner display\n    NAME         = gsub(\" County, Connecticut\", \"\", NAME),\n    # Calculate each county's share of the Connecticut state total\n    pct_of_state = (estimate / sum(estimate)) * 100\n  )\n\n# Step 4 — Display as a tidy tibble\ncounty_pop\n\n\n\n\n\n\nbuild_county_pop_table &lt;- function() {\n  county_pop %&gt;%\n    # Sort from most to least populous county\n    arrange(desc(estimate)) %&gt;%\n    # Rename columns to human-readable labels for the final table\n    select(\n      County = NAME,\n      Population = estimate,\n      `% of State` = pct_of_state\n    ) %&gt;%\n    mutate(\n      # Format population with comma thousands separators (e.g., 123,456)\n      Population = comma(Population),\n      # Round percentage to one decimal place and append a \"%\" symbol\n      `% of State` = paste0(round(`% of State`, 1), \"%\")\n    ) %&gt;%\n    # Initialize a flextable from the tibble\n    flextable() %&gt;%\n    # Explicitly set header labels (redundant here but documents intent)\n    set_header_labels(\n      County = \"County\",\n      Population = \"Population\",\n      `% of State` = \"% of State\"\n    ) %&gt;%\n    theme_vanilla() %&gt;%          # apply a clean, minimal table theme\n    bold(part = \"header\") %&gt;%    # bold the header row text\n    bg(part = \"header\", bg = \"white\") %&gt;%   # white header background\n    color(part = \"header\", color = \"black\") %&gt;%  # black header text\n    # Apply a light gray background to every even-numbered row (zebra striping)\n    bg(i = seq(2, nrow(county_pop), 2), bg = \"#F2F2F2\") %&gt;%\n    # Right-align numeric columns in both the header and body\n    align(\n      j = c(\"Population\", \"% of State\"),\n      align = \"right\",\n      part = \"all\"\n    ) %&gt;%\n    # Make the table fill the full page width and auto-size column widths\n    set_table_properties(\n      width = 1,\n      layout = \"autofit\"\n    ) %&gt;%\n    # Add a data source note below the table\n    add_footer_lines(\n      \"Source: U.S. Census Bureau, ACS 5-Year Estimates 2023. Table B01001.\"\n    )\n}\n\n# Render the formatted county population table\nbuild_county_pop_table()\n\nThe function can be called again whenever the formatted table is needed.\n\n# Re-render the same formatted table (e.g., after additional narrative text)\nbuild_county_pop_table()",
+    "crumbs": [
+      "Lessons",
+      "APIs: live demo code"
+    ]
+  },
+  {
+    "objectID": "APIs/API_demonstration.html#setup",
+    "href": "APIs/API_demonstration.html#setup",
+    "title": "API Demonstrations in R",
+    "section": "",
+    "text": "Every API example in this document follows the same data journey:\nAPI Request ──► JSON / XML Response ──► Parse & Flatten in R ──► Data Frame (Tibble) ──► (Optional) Save as CSV\n\n\n\n\n\n\n\nStage\nWhat happens\n\n\n\n\nAPI Request\nR sends an HTTP GET (or POST) to an endpoint URL with query parameters\n\n\nJSON / XML Response\nThe server returns a hierarchical, nested key-value structure optimized for web transit\n\n\nParse & Flatten\nfromJSON() or resp_body_json() converts the nested structure into rows and columns\n\n\nData Frame / Tibble\nThe result is a standard R table you can immediately use with dplyr or ggplot2\n\n\nSave as CSV\nwrite_csv() exports a flat, plain-text file you can open in Excel or share with collaborators\n\n\n\n\n\n\nEach example also follows a six-step research workflow:\n\n\n\n\n\n\n\nStep\nWhat it means\n\n\n\n\n1. Identify source + documentation\nFind the API docs before writing any code; understand endpoints, parameters, and rate limits\n\n\n2. Draft a query\nDefine fields, filters, and time range explicitly as named parameters\n\n\n3. Request data\nSend the request; respect rate limits; use timeouts and error handling\n\n\n4. Validate + clean\nCheck dimensions, types, and missing values before using the data\n\n\n5. Save raw + processed data\nSave the raw API response immediately; save the cleaned version separately\n\n\n6. Record provenance\nDocument the URL, parameters, date pulled, and API version\n\n\n\n\n\n\n\n\n\n\n\n\n\nTerm\nDefinition\n\n\n\n\nEndpoint\nThe URL for a specific resource (e.g., /studies, /drug/event.json)\n\n\nMethod\nGET retrieves data; POST submits a query or creates a record\n\n\nParameters\nFilters appended to the URL (e.g., ?year=2023&state=CT)\n\n\nAuth\nAPI key, bearer token, or OAuth credential required by some APIs\n\n\nRate limits\nMaximum requests allowed per second or per day\n\n\nPagination\npage, offset, or cursor parameters for retrieving large result sets in chunks\n\n\nResponse\nJSON or XML returned by the server, parsed into a table in R\n\n\n\n\n\n\nBoth packages send HTTP requests and handle responses. They differ in style:\n\n\n\n\n\n\n\n\n\nhttr\nhttr2\n\n\n\n\nStyle\nSingle-function call\nPipe-based, build then send\n\n\nRequest\nGET(url, query = list(...))\nrequest(url) \\|&gt; req_url_query(...) \\|&gt; req_perform()\n\n\nExtract\ncontent(resp, as = \"text\")\nresp_body_string() or resp_body_json()\n\n\nError check\nstop_for_status(resp)\nreq_error() or automatic\n\n\nRate limiting\nManual Sys.sleep()\nreq_throttle() built in\n\n\nPagination\nManual loop\nreq_perform_iterative() built in\n\n\nStatus\nOlder; widely used\nCurrent recommended approach\n\n\n\n\n\n\n\nRun this chunk once to install all packages used in this document. Set eval: false after the first run to avoid reinstalling on every render.\n\n# NHANES data access\ninstall.packages(\"nhanesA\")\n\n# Data manipulation and piping\ninstall.packages(\"tidyverse\")  # includes dplyr, tibble, and the pipe operator\n\n# HTTP requests (older, widely used interface)\ninstall.packages(\"httr\")\n\n# HTTP requests (modern, pipe-friendly interface)\ninstall.packages(\"httr2\")\n\n# JSON parsing\ninstall.packages(\"jsonlite\")\n\n# Census / ACS data access\ninstall.packages(\"tidycensus\")\n\n# Table formatting\ninstall.packages(\"flextable\")\n\n# Number formatting (e.g., comma-separated values)\ninstall.packages(\"scales\")\n\n\n\n\n\n# NHANES survey data — provides nhanes() to pull NHANES modules by cycle code\nlibrary(nhanesA)\n\n# Core data manipulation: dplyr (wrangling), tibble (modern data frames),\n# tidyr (reshaping), and the pipe operator (%&gt;%)\nlibrary(tidyverse)\n\n# httr — makes HTTP GET/POST requests; used for ClinicalTrials.gov and OpenFDA\nlibrary(httr)\n\n# httr2 — modern, pipe-friendly HTTP client; used for PubMed and Socrata APIs\nlibrary(httr2)\n\n# jsonlite — parses JSON strings returned by APIs into R data frames/lists\nlibrary(jsonlite)\n\n# tidycensus — wraps the U.S. Census Bureau API (ACS, Decennial); handles\n# geography, variable lookup, and API key management\nlibrary(tidycensus)\n\n# flextable — builds formatted, publication-ready tables in HTML/Word output\nlibrary(flextable)\n\n# scales — formats numbers (e.g., comma() for thousands separators,\n# percent() for percentage strings)\nlibrary(scales)",
+    "crumbs": [
+      "Lessons",
+      "APIs: live demo code"
+    ]
+  },
+  {
+    "objectID": "APIs/API_demonstration.html#nhanes-r-package-survey-data-access",
+    "href": "APIs/API_demonstration.html#nhanes-r-package-survey-data-access",
+    "title": "API Demonstrations in R",
+    "section": "",
+    "text": "Package: https://cran.r-project.org/package=nhanesA\nData dictionary search: https://wwwn.cdc.gov/nchs/nhanes/\n\n\n\n\n\nQuick access to NHANES data\nAccess the most recent survey cycles without manual file downloads\nMerge datasets across modules using participant ID (SEQN)\n\nNHANES organizes data into separate modules, including demographics, laboratories, examinations, and questionnaires. These modules can be linked using the participant ID (SEQN).\n\n\n\n\n# Pull the NHANES demographics module for the 2021–2023 survey cycle.\n# The cycle suffix \"L\" identifies the 2021–2023 data release.\nnhanes_demo &lt;- nhanes(\"DEMO_L\")\n\n# Pull the body measurements (BMX) module for the same cycle.\n# This contains height, weight, BMI, and related physical measurements.\nnhanes_bmx &lt;- nhanes(\"BMX_L\")\n\nThe syntax changes across APIs, but the overall research workflow is remarkably similar.\n\n\n\nDatasets can be merged using SEQN to create an analysis-ready table.\nA data dictionary is important for understanding variable names and coding. For example, RIAGENDR is coded as 1 for male and 2 for female.\n\nnhanes_data &lt;- nhanes_demo %&gt;%\n  # Join the body measurements module to the demographics module on the\n  # shared participant ID (SEQN). left_join keeps all demographic rows\n  # even if a BMX record is missing for that participant.\n  left_join(nhanes_bmx, by = \"SEQN\") %&gt;%\n  # Retain only the four variables needed for this example:\n  # SEQN = participant ID, RIDAGEYR = age in years,\n  # RIAGENDR = sex (1 = Male, 2 = Female), BMXBMI = body mass index\n  select(SEQN, RIDAGEYR, RIAGENDR, BMXBMI)\n\n# Preview the first six rows to verify the join and variable selection\nhead(nhanes_data)",
+    "crumbs": [
+      "Lessons",
+      "APIs: live demo code"
+    ]
+  },
+  {
+    "objectID": "APIs/API_demonstration.html#pubmed-ncbi-e-utilities",
+    "href": "APIs/API_demonstration.html#pubmed-ncbi-e-utilities",
+    "title": "API Demonstrations in R",
+    "section": "",
+    "text": "E-utilities overview: https://www.ncbi.nlm.nih.gov/books/NBK25497/\ne-search endpoint: https://www.ncbi.nlm.nih.gov/books/NBK25499/\nUsage guidelines: 10 requests/second with an API key; 3/second without\n\n\n\n\n\nReproducible literature searches\nRetrieve PMIDs and basic citation metadata\nBuild screening datasets\n\nNCBI requests should follow usage guidelines and include reasonable request pacing for large retrieval jobs.\n\n\n\n\n\n\n\n\n\n\nWorkflow concept\nThis example\n\n\n\n\nEndpoint\nhttps://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi\n\n\nMethod\nGET\n\n\nParameters\ndb, term (MeSH + date filter), retmode, retmax\n\n\nAuth\nNone required for low-volume use\n\n\nRate limit\n3 requests/second without key; 10/second with key\n\n\nPagination\nretstart + retmax for batching\n\n\nResponse\nJSON → parsed to list → PMIDs extracted to tibble\n\n\nPackage\nhttr2 (pipe-based: build → configure → send → extract)",
+    "crumbs": [
+      "Lessons",
+      "APIs: live demo code"
+    ]
+  },
+  {
+    "objectID": "APIs/API_demonstration.html#what-this-code-does-search-pubmed-and-retrieve-article-ids",
+    "href": "APIs/API_demonstration.html#what-this-code-does-search-pubmed-and-retrieve-article-ids",
+    "title": "API Demonstrations in R",
+    "section": "",
+    "text": "The goal is simple: ask PubMed “give me IDs for up to 20 asthma articles from 2023” and turn the answer into an R table.\n\n\n\nlibrary(httr2)\n\n# Step 1 — Define where to send the request\n# Base URL for the NCBI E-utilities esearch endpoint,\n# which returns a list of matching PubMed IDs (PMIDs)\nbase &lt;- \"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi\"\n\n#Step 2 — Define what you are asking for\n# Define the search parameters:\n# db       = target database (pubmed)\n# term     = MeSH-tagged search term filtered to 2023 publications\n# retmode  = return format (json)\n# retmax   = maximum number of PMIDs to return\nquery &lt;- list(\n  db = \"pubmed\",\n  term = \"asthma[MeSH Terms] AND 2023[pdat]\",\n  retmode = \"json\",\n  retmax = 20\n)\n\n# Step 3 — Build and send the request\n# Build and send the HTTP GET request, appending the query parameters to the URL\nresp &lt;- request(base) |&gt;      # Creates a request object pointed at the endpoint URL — nothing is sent yet\n  req_url_query(!!!query) |&gt;  # splice the named list into individual URL params\n  req_perform()               # Actually sends the GET request over the internet and returns the server's response\n\n# Step 4 — Extract the response body - JSON\n# Extract the raw response body as a character string\ntxt &lt;- resp |&gt;\n  resp_body_string()\n\n# Step 5 — Parse and Flatten the JSON into R\n# Parse the JSON string into a nested R list\ndat &lt;- fromJSON(txt)\n\n# Step 6 — Navigate to the IDs\n\n# The parsed list has a specific structure. You drill into it like folders:\n# dat\n# └── $esearchresult\n#       └── $idlist ← this is the vector of PubMed IDs\n\npmids &lt;- dat$esearchresult$idlist\n\n# 7 - Display the PMIDs as a tidy one-column tibble\ntibble(pmid = pmids)",
+    "crumbs": [
+      "Lessons",
+      "APIs: live demo code"
+    ]
+  },
+  {
+    "objectID": "APIs/API_demonstration.html#clinicaltrials.gov-trial-registry-metadata",
+    "href": "APIs/API_demonstration.html#clinicaltrials.gov-trial-registry-metadata",
+    "title": "API Demonstrations in R",
+    "section": "",
+    "text": "API v2 reference: https://clinicaltrials.gov/data-api/api\nField definitions: https://clinicaltrials.gov/data-api/about-api/study-data-structure\n\n\n\n\n\nFind trials by condition, intervention, or location\nCompare outcomes reporting patterns\nConduct sponsor or phase landscape scans\n\n\n\n\n\n\n\n\n\n\n\nWorkflow concept\nThis example\n\n\n\n\nEndpoint\nhttps://clinicaltrials.gov/api/v2/studies\n\n\nMethod\nGET\n\n\nParameters\nquery.term (free text), pageSize\n\n\nAuth\nNone\n\n\nRate limit\nReasonable use; no published hard limit\n\n\nPagination\npageToken returned in response for next page\n\n\nResponse\nJSON → flatten → tibble\n\n\nPackage\nhttr (single-call style: GET() → content() → fromJSON())\n\n\n\n\n\n\nThe goal is simple: ask ClinicalTrials.gov “give me 10 studies about diabetes” and turn the answer into an R table.\n\n\n\n\n# Step 1 — Define where to send the request\n# Base URL for the ClinicalTrials.gov v2 REST API studies endpoint\nurl &lt;- \"https://clinicaltrials.gov/api/v2/studies\"\n\n# Step 2 — Define what you are asking for\n# Query parameters:\n# query.term = free-text search term (diabetes)\n# pageSize   = number of study records to return per page\nparams &lt;- list(\n  `query.term` = \"diabetes\",\n  pageSize = 10\n)\n\n# Step 3 — Build and send the request\n# Send a GET request with a 30-second timeout to avoid hanging on slow responses\nresp &lt;- GET(url, query = params, timeout(30))\n\n# Raise an error if the server returned an HTTP error status (4xx or 5xx)\nstop_for_status(resp)\n\n# Step 4 — Extract the response body - JSON\n# Extract the response body as a UTF-8 text string\ndata_txt &lt;- content(resp, as = \"text\", encoding = \"UTF-8\")\n\n# Step 5 — Parse and Flatten the JSON into R\n# Parse the JSON text into a nested R list; flatten = TRUE collapses\n# nested lists into dot-separated column names for easier data-frame use\ndata &lt;- fromJSON(data_txt, flatten = TRUE)\n\n# Step 6 — Navigate to the studies\n\n# The parsed list has a specific structure. You drill into it like folders:\n# data\n#  └── $studies  ← this is the array of study records\n\n# Isolate the studies array from the parsed response\nstudies &lt;- data$studies\n\n# Step 7 — Display as a tidy tibble\n# Convert the list to a tibble for easier inspection and downstream wrangling\nstudies_tbl &lt;- as_tibble(studies)\n\n# Print a compact overview of all columns and their types\nstr(studies_tbl)",
+    "crumbs": [
+      "Lessons",
+      "APIs: live demo code"
+    ]
+  },
+  {
+    "objectID": "APIs/API_demonstration.html#openfda-adverse-events",
+    "href": "APIs/API_demonstration.html#openfda-adverse-events",
+    "title": "API Demonstrations in R",
+    "section": "",
+    "text": "API overview: https://open.fda.gov/apis/\nDrug event endpoint: https://open.fda.gov/apis/drug/event/\nNo API key required for low-volume use (40 requests/minute; 1,000/day)\n\n\n\n\n\nPharmacovigilance exploration\nCounts over time, stratified by drug or product fields\nTeaching filtering and pagination\n\n\n\n\n\n\n\nWorkflow concept\nThis example\n\n\n\n\nEndpoint\nhttps://api.fda.gov/drug/event.json\n\n\nMethod\nGET\n\n\nParameters\nsearch (field-specific filter), limit\n\n\nAuth\nNone for low-volume use\n\n\nRate limit\n40 requests/minute; 1,000/day without key\n\n\nPagination\nskip + limit for paging through results\n\n\nResponse\nJSON → flatten → tibble\n\n\nPackage\nhttr\n\n\n\n\n\n\nThe goal is simple: ask OpenFDA “give me 5 adverse event reports mentioning metformin” and turn the answer into an R table.\n\n\n\n\n# Step 1 — Define where to send the request\n# Base URL for the FDA adverse drug event (FAERS) endpoint\nbase &lt;- \"https://api.fda.gov/drug/event.json\"\n\n# Step 2 — Define what you are asking for\n# Query parameters:\n# search = filter to reports mentioning metformin as the medicinal product\n# limit  = return only 5 records for this demonstration\nparams &lt;- list(\n  search = 'patient.drug.medicinalproduct:\"metformin\"',\n  limit = 5\n)\n\n# Step 3 — Build and send the request\n# Send the GET request with a 30-second timeout\nresp &lt;- GET(base, query = params, timeout(30))\n\n# Raise an error if the server returned an HTTP error status (4xx or 5xx)\nstop_for_status(resp)\n\n# Step 4 — Extract the response body - JSON\n# Decode the response body to a UTF-8 text string\ntxt &lt;- content(resp, as = \"text\", encoding = \"UTF-8\")\n\n# Step 5 — Parse and Flatten the JSON into R\n# Parse the JSON; flatten = TRUE converts nested fields to dot-notation columns\nj &lt;- fromJSON(txt, flatten = TRUE)\n\n# Step 6 — Navigate to the results\n# The parsed list has a specific structure. You drill into it like folders:\n#  j \n#  └── $results  ← this is the array of adverse event reports\nfda_df &lt;- j$results %&gt;%\n  as_tibble()\n\n# Step 7 — Display as a tidy tibble\n# Uncomment the line below to print all rows and columns for inspection\n# print(fda_df, n = 5, width = Inf)",
+    "crumbs": [
+      "Lessons",
+      "APIs: live demo code"
+    ]
+  },
+  {
+    "objectID": "APIs/API_demonstration.html#cdc-open-data-socrata-api",
+    "href": "APIs/API_demonstration.html#cdc-open-data-socrata-api",
+    "title": "API Demonstrations in R",
+    "section": "",
+    "text": "Many government open-data portals use Socrata APIs. These APIs support SQL-like query parameters such as $select, $where, and $limit.\nSocrata API documentation: https://dev.socrata.com/docs/endpoints\n\n\n\nQuick access to many public datasets\nTeach select, where, and limit query patterns\nDiscover datasets through an API catalog\n\n\n\n\n\n\n\n\n\n\n\nWorkflow concept\nThis example\n\n\n\n\nEndpoint\nDiscovery catalog + individual dataset endpoint\n\n\nMethod\nGET\n\n\nParameters\nq, domains (catalog); $limit (SODA)\n\n\nAuth\nNone for public datasets\n\n\nRate limit\nThrottled for unauthenticated requests; app token recommended for bulk use\n\n\nPagination\n$limit + $offset\n\n\nResponse\nJSON → flatten → tibble\n\n\nPackage\nhttr2\n\n\n\n\n\n\nThe goal is simple: ask the Socrata catalog “find me a CDC dataset about COVID-19 hospitalization”, then pull 100 records from it and turn the answer into an R table.\n\n\n\nThe following example searches the Socrata catalog for a dataset related to COVID-19 hospitalization surveillance.\nThe q parameter and domain filter can be changed to search for other datasets.\n\n# Step 1 — Define where to send the request\n# Socrata discovery catalog endpoint\nbase &lt;- \"https://api.us.socrata.com/api/catalog/v1\"\n\n# Step 2 — Define what you are asking for\n# Query parameters:\n# q       = free-text search term\n# domains = restrict results to the CDC data portal\nquery &lt;- list(\n  q       = \"COVID-19 hospitalization\",\n  domains = \"data.cdc.gov\"\n)\n\n# Step 3 — Build and send the request\ncatalog &lt;- request(base) |&gt;\n  req_url_query(\n    q       = query$q,\n    domains = query$domains\n  ) |&gt;\n  req_perform() |&gt;   # send the request\n  resp_body_json()   # parse the JSON response body into an R list\n\n# Step 4 — Extract the response body - JSON\n# Extract the top result from the catalog response\ntop_result &lt;- catalog$results[[1]]\n\n# Step 5 — Navigate to the dataset identifier\n# The parsed list has a specific structure. You drill into it like folders:\n# catalog\n#  └── $results\n#        └── [[1]]\n#              └── $resource\n#                    └── $id  ← the 4x4 dataset identifier\ntop_result$resource$id",
+    "crumbs": [
+      "Lessons",
+      "APIs: live demo code"
+    ]
+  },
+  {
+    "objectID": "APIs/API_demonstration.html#what-this-code-does-pull-records-from-a-socrata-dataset-endpoint",
+    "href": "APIs/API_demonstration.html#what-this-code-does-pull-records-from-a-socrata-dataset-endpoint",
+    "title": "API Demonstrations in R",
+    "section": "",
+    "text": "The goal is simple: take the endpoint URL found in the previous step, ask it for 100 records, and turn the answer into an R table.\n\n\nReplace the dataset endpoint with the endpoint identified in the previous step. Many Socrata datasets support SODA queries through parameters such as $select, $where, and $limit.\n\n# Step 1 — Define where to send the request\n# Use the dataset identifier from the catalog search above to construct the endpoint\nendpoint &lt;- \"https://data.cdc.gov/resource/akn2-qxic.json\"\n\n# Step 2 — Define what you are asking for\n# $limit = number of records to return (SODA pagination parameter)\nquery &lt;- list(`$limit` = 100)\n\n# Step 3 — Build and send the request\nresp &lt;- request(endpoint) |&gt;\n  req_url_query(`$limit` = query$`$limit`) |&gt;\n  req_perform()\n\n# Step 4 — Extract the response body - JSON\n# Step 5 — Parse and Flatten the JSON into R\nresp_dat &lt;- fromJSON(\n  resp_body_string(resp),  # extract response as a character string first\n  flatten = TRUE           # collapse nested JSON objects into dot-notation columns\n)\n\n# Step 6 — Navigate to the results\n# resp_dat is already a flat data frame after fromJSON with flatten = TRUE\n\n# Step 7 — Display as a tidy tibble\nas_tibble(resp_dat)",
+    "crumbs": [
+      "Lessons",
+      "APIs: live demo code"
+    ]
+  },
+  {
+    "objectID": "APIs/API_demonstration.html#census-api-acs-data",
+    "href": "APIs/API_demonstration.html#census-api-acs-data",
+    "title": "API Demonstrations in R",
+    "section": "",
+    "text": "Census and American Community Survey (ACS) data can provide population context for health research, including:\n\nDenominators for calculating rates\nSocial determinants proxies such as income, education, housing, and internet access\nFine-grained geographies such as tract, ZIP, county, ZCTA, and PUMA\nAnnual or 5-year series for trend analysis\n\nCommon outputs include:\n\nTract, county, and state estimates\nACS variables and multi-year estimates\n\n\n\n\nThe Census API provides a free API key.\nRequest a key:\nhttps://api.census.gov/data/key_signup.html\nStore the key safely, for example in ~/.Renviron:\nCENSUS_API_KEY=YOUR_KEY_HERE\n\n\n\nThe following opens the .Renviron file so the key can be added.\n\n# Open the user-level .Renviron file in the RStudio editor.\n# Add the line: CENSUS_API_KEY=YOUR_KEY_HERE\n# Save and restart R for the variable to take effect.\nfile.edit(\"~/.Renviron\")\n\n\n\n\n\n# Read the key from the CENSUS_API_KEY environment variable set in .Renviron.\n# install = TRUE writes the key to .Renviron permanently so it persists\n# across R sessions. overwrite = TRUE replaces any previously stored key.\ncensus_api_key(\n  Sys.getenv(\"CENSUS_API_KEY\"),\n  install = TRUE,\n  overwrite = TRUE\n)\n\n\n\n\nThis example retrieves a basic population estimate for all states in 2023.\n\n# Retrieve ACS 5-year total population estimates (variable B01001_001)\n# for every U.S. state using the 2023 ACS release.\n# This is a quick smoke-test to confirm the API key is working correctly.\nget_acs(\n  geography = \"state\",      # geographic level: one row per state\n  variables = \"B01001_001\", # total population estimate\n  year = 2023               # most recent ACS 5-year release available\n)\n\n\n\n\n\n\n\nFor example:\nB01001_001\n\nB or C = table type\n01 = broad subject code\n001 = table sequence number\n_001 = specific line number within the table\n\nLine _001 is commonly the total for the table.\n\n\n\n\n\n\n\n\n\n\n\nPrefix\nSubject Category\nExample Metrics\n\n\n\n\n01–07\nCore Demographics\nAge, sex, race, ancestry, place of birth\n\n\n08\nCommuting & Transit\nRemote work, public transit, travel times\n\n\n11–13\nHouseholds & Family\nMarital status, family size, fertility\n\n\n15–16\nEducation & Language\nEducational attainment, languages spoken\n\n\n17–23\nEconomics & Finance\nIncome, poverty, employment\n\n\n24\nOccupations\nEmployment fields\n\n\n25\nHousing & Living\nRent, home values, utilities, vehicles\n\n\n\nA useful resource for searching Census tables is:\nhttps://censusreporter.org\n\n\n\n\nB19013 — Median Household Income\nB17001 — Poverty Status by Sex and Age\nB15003 — Educational Attainment\nB25077 — Median Value of Owner-Occupied Housing Units\nB28002 — Household Internet Access\nB25044 — Vehicles Available per Household\n\n\n\n\n\nB tables (Base Tables): Provide more detailed row-level breakdowns.\nC tables (Collapsed Tables): Provide broader, collapsed categories.\n\nIf a B table contains more detail than needed, the corresponding C table can sometimes provide a simpler overview.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nWorkflow concept\nThis example\n\n\n\n\nEndpoint\nCensus Bureau ACS API (wrapped by tidycensus)\n\n\nMethod\nGET (handled internally by tidycensus)\n\n\nParameters\ngeography, variables, state, year, survey\n\n\nAuth\nCensus API key stored in .Renviron\n\n\nRate limit\nGenerous; key required for sustained use\n\n\nPagination\nHandled automatically by tidycensus\n\n\nResponse\nParsed directly to tibble by tidycensus\n\n\nPackage\ntidycensus\n\n\n\nThis example retrieves population estimates by county in Connecticut and calculates each county’s percentage of the state population.\n\n# Step 1 — Authenticate\n# Re-register the Census API key for this session (required if the environment\n# variable was set after the initial R session start)\ncensus_api_key(Sys.getenv(\"CENSUS_API_KEY\"))\n\n# Step 2 — Define what you are asking for and send the request\n# tidycensus handles the request, response parsing, and tibble conversion internally\n# geography = geographic level: one row per county\n# variables = B01001_001 is the total population estimate\n# state     = filter to Connecticut counties only\n# year      = ACS release year\n# survey    = acs5 uses the 5-year estimates for greater reliability\ncounty_pop &lt;- get_acs(\n  geography = \"county\",\n  variables = \"B01001_001\",\n  state     = \"CT\",\n  year      = 2023,\n  survey    = \"acs5\"\n)\n\n# Step 3 — Clean and calculate\ncounty_pop &lt;- county_pop %&gt;%\n  mutate(\n    # Strip the boilerplate suffix from county names for cleaner display\n    NAME         = gsub(\" County, Connecticut\", \"\", NAME),\n    # Calculate each county's share of the Connecticut state total\n    pct_of_state = (estimate / sum(estimate)) * 100\n  )\n\n# Step 4 — Display as a tidy tibble\ncounty_pop\n\n\n\n\n\n\nbuild_county_pop_table &lt;- function() {\n  county_pop %&gt;%\n    # Sort from most to least populous county\n    arrange(desc(estimate)) %&gt;%\n    # Rename columns to human-readable labels for the final table\n    select(\n      County = NAME,\n      Population = estimate,\n      `% of State` = pct_of_state\n    ) %&gt;%\n    mutate(\n      # Format population with comma thousands separators (e.g., 123,456)\n      Population = comma(Population),\n      # Round percentage to one decimal place and append a \"%\" symbol\n      `% of State` = paste0(round(`% of State`, 1), \"%\")\n    ) %&gt;%\n    # Initialize a flextable from the tibble\n    flextable() %&gt;%\n    # Explicitly set header labels (redundant here but documents intent)\n    set_header_labels(\n      County = \"County\",\n      Population = \"Population\",\n      `% of State` = \"% of State\"\n    ) %&gt;%\n    theme_vanilla() %&gt;%          # apply a clean, minimal table theme\n    bold(part = \"header\") %&gt;%    # bold the header row text\n    bg(part = \"header\", bg = \"white\") %&gt;%   # white header background\n    color(part = \"header\", color = \"black\") %&gt;%  # black header text\n    # Apply a light gray background to every even-numbered row (zebra striping)\n    bg(i = seq(2, nrow(county_pop), 2), bg = \"#F2F2F2\") %&gt;%\n    # Right-align numeric columns in both the header and body\n    align(\n      j = c(\"Population\", \"% of State\"),\n      align = \"right\",\n      part = \"all\"\n    ) %&gt;%\n    # Make the table fill the full page width and auto-size column widths\n    set_table_properties(\n      width = 1,\n      layout = \"autofit\"\n    ) %&gt;%\n    # Add a data source note below the table\n    add_footer_lines(\n      \"Source: U.S. Census Bureau, ACS 5-Year Estimates 2023. Table B01001.\"\n    )\n}\n\n# Render the formatted county population table\nbuild_county_pop_table()\n\nThe function can be called again whenever the formatted table is needed.\n\n# Re-render the same formatted table (e.g., after additional narrative text)\nbuild_county_pop_table()",
+    "crumbs": [
+      "Lessons",
+      "APIs: live demo code"
+    ]
+  },
+  {
+    "objectID": "pages/setup.html",
+    "href": "pages/setup.html",
+    "title": "Setup",
+    "section": "",
+    "text": "Setup problems take a long time to fix during class, so please get ready before the first session."
+  },
+  {
+    "objectID": "pages/setup.html#install-r-and-an-editor",
+    "href": "pages/setup.html#install-r-and-an-editor",
+    "title": "Setup",
+    "section": "1. Install R and an editor",
+    "text": "1. Install R and an editor\n\nR (version 4.1 or newer): https://cran.r-project.org/\nAn editor: RStudio or Positron. Either works."
+  },
+  {
+    "objectID": "pages/setup.html#install-the-r-packages",
+    "href": "pages/setup.html#install-the-r-packages",
+    "title": "Setup",
+    "section": "2. Install the R packages",
+    "text": "2. Install the R packages\nCopy this into the R console and press Enter. It takes a few minutes.\n\ninstall.packages(c(\n  # APIs\n  \"httr\", \"httr2\", \"jsonlite\", \"nhanesA\", \"tidycensus\",\n  # Web scraping\n  \"rvest\", \"xml2\", \"polite\", \"robotstxt\",\n  # Data cleaning and tables\n  \"tidyverse\", \"janitor\", \"flextable\", \"scales\"\n))"
+  },
+  {
+    "objectID": "pages/setup.html#get-a-census-api-key-for-lesson-1",
+    "href": "pages/setup.html#get-a-census-api-key-for-lesson-1",
+    "title": "Setup",
+    "section": "3. Get a Census API key (for Lesson 1)",
+    "text": "3. Get a Census API key (for Lesson 1)\nThe Census API needs a free key. It arrives by email within a few minutes.\n\nRequest a key: https://api.census.gov/data/key_signup.html\nOpen your .Renviron file:\n\nfile.edit(\"~/.Renviron\")\n\nAdd this line (with your key), save the file, and restart R:\nCENSUS_API_KEY=YOUR_KEY_HERE\n\n\n\n\n\n\n\nWarningKeep your key private\n\n\n\nNever paste API keys into your scripts, and never commit them to GitHub. Keeping them in .Renviron keeps them out of your code."
+  },
+  {
+    "objectID": "pages/setup.html#download-the-course-folder",
+    "href": "pages/setup.html#download-the-course-folder",
+    "title": "Setup",
+    "section": "4. Download the course folder",
+    "text": "4. Download the course folder\n⬇ Course folder (ZIP)\nUnzip it somewhere you can find it (not your Downloads folder). The demo files are:\n\nAPIs/API_demonstration.qmd (Lesson 1)\nweb_scraping/web_scraping_demonstration.qmd (Lesson 2)\nweb_scraping/scraping_using_playwright.py (Lesson 2, optional Python example)"
+  },
+  {
+    "objectID": "pages/setup.html#optional-python-for-dynamic-scraping",
+    "href": "pages/setup.html#optional-python-for-dynamic-scraping",
+    "title": "Setup",
+    "section": "5. (Optional) Python for dynamic scraping",
+    "text": "5. (Optional) Python for dynamic scraping\nThe CDC FluView example in Lesson 2 uses Python and Playwright. You only need this if you want to run that example yourself.\npip install playwright pandas jupyter\nplaywright install chromium\n\n\n\n\n\n\nNote\n\n\n\nThe Playwright script is written to run in a Jupyter notebook (it uses await at the top level). Paste it into a notebook cell rather than running python scraping_using_playwright.py."
+  },
+  {
+    "objectID": "pages/setup.html#test-your-setup",
+    "href": "pages/setup.html#test-your-setup",
+    "title": "Setup",
+    "section": "6. Test your setup",
+    "text": "6. Test your setup\nRun this in R. Each line should print the result in its comment.\n\nlibrary(rvest)\nread_html(\"https://example.com\") |&gt; html_element(\"h1\") |&gt; html_text2()\n# [1] \"Example Domain\"\n\nlibrary(httr2)\nrequest(\"https://clinicaltrials.gov/api/v2/version\") |&gt; req_perform() |&gt; resp_status()\n# [1] 200\n\nSys.getenv(\"CENSUS_API_KEY\") != \"\"\n# [1] TRUE\n\nIf you see an error, email maximilian.wegener@yale.edu before the first session."
+  },
+  {
+    "objectID": "pages/lessons/02-web-scraping.html",
+    "href": "pages/lessons/02-web-scraping.html",
+    "title": "Lesson 2: Web Scraping",
+    "section": "",
+    "text": "🖥️ View slides ⬇ Download slides (HTML) ⬇ Demo file (.qmd) ⬇ Playwright script (.py) ⬇ Whole course folder (ZIP)",
+    "crumbs": [
+      "Lessons",
+      "Lesson 2: Web Scraping"
+    ]
+  },
+  {
+    "objectID": "pages/lessons/02-web-scraping.html#what-is-web-scraping",
+    "href": "pages/lessons/02-web-scraping.html#what-is-web-scraping",
+    "title": "Lesson 2: Web Scraping",
+    "section": "What is web scraping?",
+    "text": "What is web scraping?\nWeb scraping is extracting data from web pages with code. You need it when:\n\nNo official API exists for the data\nThe API is restricted, rate-limited, or paywalled\nThe data only appears on a public web page (directory listings, public tables, news archives)\n\n\n\n\n\n\n\nImportantAlways check for an API first\n\n\n\nAPIs are more stable, better documented, and more reproducible than scraping. Scrape only when there is no API or bulk download. See Lesson 1.\n\n\nEvery example in this lesson follows the same data journey:\nTarget URL ──► HTML/DOM Response ──► Select & Target Nodes\n           ──► Parse Text/Tables ──► Data Frame (Tibble) ──► Save Snapshot & CSV",
+    "crumbs": [
+      "Lessons",
+      "Lesson 2: Web Scraping"
+    ]
+  },
+  {
+    "objectID": "pages/lessons/02-web-scraping.html#static-vs-dynamic-scraping",
+    "href": "pages/lessons/02-web-scraping.html#static-vs-dynamic-scraping",
+    "title": "Lesson 2: Web Scraping",
+    "section": "Static vs dynamic scraping",
+    "text": "Static vs dynamic scraping\n\n\n\n\n\n\n\n\n\nStatic (rvest, polite)\nDynamic (Playwright, chromote, Selenium)\n\n\n\n\nHow it works\nDownloads the raw HTML from the server\nDrives a real browser that runs the page’s JavaScript\n\n\nSpeed\nFast and lightweight\nSlower; uses more memory\n\n\nCan click and type?\nNo\nYes: buttons, dropdowns, logins, downloads\n\n\nrobots.txt\nChecked automatically by polite::bow()\nYou must check it yourself\n\n\nExample in this lesson\nWikipedia COVID-19 tables\nCDC FluView download\n\n\n\nRule of thumb: always start with static scraping. Switch to a browser tool only if the data is built by JavaScript after the page loads.",
+    "crumbs": [
+      "Lessons",
+      "Lesson 2: Web Scraping"
+    ]
+  },
+  {
+    "objectID": "pages/lessons/02-web-scraping.html#the-researcher-loop",
+    "href": "pages/lessons/02-web-scraping.html#the-researcher-loop",
+    "title": "Lesson 2: Web Scraping",
+    "section": "The researcher loop",
+    "text": "The researcher loop\n\nIdentify source + inspect DOM: check robots.txt and the Terms of Service, then inspect the page in your browser’s Developer Tools\nDraft selector strategy: find the XPath or CSS selector for your target\nFetch web page: download the HTML once with read_html()\nExtract + clean: html_element(), html_table(), janitor::clean_names()\nSave HTML snapshot: write_html(), so the data pull can be checked later even if the site changes\nRecord provenance: URL, selectors, timestamp, and package versions",
+    "crumbs": [
+      "Lessons",
+      "Lesson 2: Web Scraping"
+    ]
+  },
+  {
+    "objectID": "pages/lessons/02-web-scraping.html#the-live-demo",
+    "href": "pages/lessons/02-web-scraping.html#the-live-demo",
+    "title": "Lesson 2: Web Scraping",
+    "section": "The live demo",
+    "text": "The live demo\n\n\n\n\n\n\n\n\n\n#\nExample\nLanguage\nWhat it shows\n\n\n\n\n1\nOne Wikipedia table\nR\nFetch once, select by XPath, clean, save a snapshot, log provenance\n\n\n2\nSeveral Wikipedia tables\nR\nA reusable scrape_by_xpath() function; exporting CSVs\n\n\n3\nCDC FluView\nPython\nPlaywright clicks through a download dialog and saves the file\n\n\n4\nWriting code with AI\n(prompt)\nHow to ask Yale’s Clarity platform to draft scraping code\n\n\n\n👀 Open the demo code to follow along, or download the demo file above and run it one chunk at a time.\n\n\n\n\n\n\nWarningWeb pages change\n\n\n\nWebsites change their layout without warning, and an XPath that works today can break tomorrow. That’s why the demos save an HTML snapshot and log the selectors they used. If a demo fails, inspect the page again and update the XPath.",
+    "crumbs": [
+      "Lessons",
+      "Lesson 2: Web Scraping"
+    ]
+  },
+  {
+    "objectID": "pages/lessons/02-web-scraping.html#next",
+    "href": "pages/lessons/02-web-scraping.html#next",
+    "title": "Lesson 2: Web Scraping",
+    "section": "Next",
+    "text": "Next\nSee Resources for scraping tools, selector guides, and robots.txt references.",
+    "crumbs": [
+      "Lessons",
+      "Lesson 2: Web Scraping"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/session-02.html",
+    "href": "pages/instructor/session-02.html",
+    "title": "Session 2: Web Scraping",
+    "section": "",
+    "text": "Learner page: Lesson 2: Web scraping · Slides: web_scraping/web_scraping.qmd · Demo: web_scraping/web_scraping_demonstration.qmd and web_scraping/scraping_using_playwright.py",
+    "crumbs": [
+      "Instructor Guide",
+      "Session 2: Web Scraping"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/session-02.html#prepare",
+    "href": "pages/instructor/session-02.html#prepare",
+    "title": "Session 2: Web Scraping",
+    "section": "Prepare",
+    "text": "Prepare\n\nRun both R snippets in web_scraping_demonstration.qmd the day before. Check that the XPaths still find the Wikipedia tables: this is the part most likely to break.\nRun the Playwright script in a Jupyter notebook, and check that the CDC FluView download dialog still has the same buttons.\nHave the Wikipedia page open with Developer Tools ready, so you can show Inspect → Copy → Copy XPath live.",
+    "crumbs": [
+      "Instructor Guide",
+      "Session 2: Web Scraping"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/session-02.html#flow",
+    "href": "pages/instructor/session-02.html#flow",
+    "title": "Session 2: Web Scraping",
+    "section": "Flow",
+    "text": "Flow\nThe session runs about 120 minutes.\n\nPart 1: Fundamentals: what scraping is and when to use it, ground rules and robots.txt, the DOM and node types, static vs dynamic, vocabulary, status codes, the researcher loop.\nPart 2: Hands-on objectives: the two case studies (Wikipedia, CDC FluView).\nPart 3: Live demo: switch to web_scraping_demonstration.qmd, then the Playwright script.\nPart 4: Wrap-up: the resource table and the survey QR code.",
+    "crumbs": [
+      "Instructor Guide",
+      "Session 2: Web Scraping"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/session-02.html#teaching-notes",
+    "href": "pages/instructor/session-02.html#teaching-notes",
+    "title": "Session 2: Web Scraping",
+    "section": "Teaching notes",
+    "text": "Teaching notes\n\nFetch once, extract many times. Steps 3 and 4 of the researcher loop match the code: read_html() downloads the page into page once, and scrape_by_xpath() runs Step 4 for each table. This avoids sending the same request again and again.\nShow robots.txt live. Open https://en.wikipedia.org/robots.txt and walk through User-agent, Disallow, and Crawl-delay.\nWhy save a snapshot? write_html() keeps a copy of the page exactly as it was when you scraped it. If the site changes, you can still check or re-parse your data.\nWhy static fails on FluView. Open FluView, then view the page source (not Inspect): the data isn’t in the HTML. That’s the moment to introduce browser automation.\nCopy XPath, not Copy full XPath. Show both options on the Wikipedia table. The short XPath (//*[@id=\"mwAaI\"]/table) starts from the nearest element with an ID and works in R. The full XPath (/html/body/div[3]/...) describes the page after the browser has run its JavaScript, so it finds nothing in the raw HTML that read_html() downloads. The Playwright script can use full XPaths because Playwright works in a real browser, which is a nice contrast to point out.\nWriting code with AI. The last section of the demo shows how to describe a scraping task to Yale’s Clarity platform: the language, the method, the URL, the selectors, and the goal.",
+    "crumbs": [
+      "Instructor Guide",
+      "Session 2: Web Scraping"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/session-02.html#known-problems",
+    "href": "pages/instructor/session-02.html#known-problems",
+    "title": "Session 2: Web Scraping",
+    "section": "Known problems",
+    "text": "Known problems\n\nThe demo’s IDs can change. IDs like mwAaI and mwAjg are generated by Wikipedia’s software and can change when the page is edited. If a snippet returns an empty result, inspect the table again and copy the new XPath. If IDs keep changing, anchor on the section heading instead. These find the same two tables, and Snippet 1 includes the first one as a commented-out alternative:\n'//*[@id=\"Total_cases,_deaths,_and_death_rates_by_country\"]/ancestor::section[1]//table[contains(@class,\"wikitable\")]'\n'//*[@id=\"Vaccinations\"]/ancestor::section[1]//table[contains(@class,\"wikitable\")]'\nIf a learner copies the full XPath by mistake, the result is empty ({xml_missing}) and html_table() gives an error. This is a good moment to show the difference between the two copy options.\nThe Playwright script runs only in Jupyter. It uses await scrape_fluview() at the top level, which works in a notebook but is a syntax error in python scraping_using_playwright.py.\nThe FluView “zip” is really a CSV. The bottom of the script reads it with compression=None for that reason.\nWhere files are saved. The R demo writes snapshots and CSVs to the working directory, and the Python script saves to web_scraping/downloads/ (relative to where Jupyter was started). The downloads/ folders are in .gitignore.",
+    "crumbs": [
+      "Instructor Guide",
+      "Session 2: Web Scraping"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/index.html",
+    "href": "pages/instructor/index.html",
+    "title": "Instructor Guide",
+    "section": "",
+    "text": "This guide is for anyone teaching the course. The lessons contain everything learners see. The pages here add preparation steps, teaching notes, and known problems.",
+    "crumbs": [
+      "Instructor Guide"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/index.html#the-teaching-rhythm",
+    "href": "pages/instructor/index.html#the-teaching-rhythm",
+    "title": "Instructor Guide",
+    "section": "The teaching rhythm",
+    "text": "The teaching rhythm\nEach session has two halves:\n\n🖥️ Slides: concepts, ground rules, and a tour of the data sources.\n👀 Live demo: switch to your editor and run the demo file one chunk at a time. Learners run the same chunks in their own copy.",
+    "crumbs": [
+      "Instructor Guide"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/index.html#live-coding-tips",
+    "href": "pages/instructor/index.html#live-coding-tips",
+    "title": "Instructor Guide",
+    "section": "Live coding tips",
+    "text": "Live coding tips\n\nRun one chunk at a time and talk about the output before moving on.\nUse a big font and a light color theme for the projector.\nRead errors out loud and fix them together. Learners will meet the same errors.\nExpect live sites to misbehave. APIs time out and web pages change. Treat a failure as a teaching moment about why we save snapshots and log provenance.",
+    "crumbs": [
+      "Instructor Guide"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/index.html#before-the-course",
+    "href": "pages/instructor/index.html#before-the-course",
+    "title": "Instructor Guide",
+    "section": "Before the course",
+    "text": "Before the course\n\nOne week before: send learners the Setup page. Remind them that the Census key can take a few minutes to arrive, and that it must go in .Renviron before Lesson 1.\nThe day before each session: run the whole demo file yourself. Websites and APIs change, so a demo that worked last term may not work now. See the session pages for the parts most likely to break.\nBefore each session: have your own Census key loaded and the Playwright example working, in case the network is slow.",
+    "crumbs": [
+      "Instructor Guide"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/index.html#session-overview",
+    "href": "pages/instructor/index.html#session-overview",
+    "title": "Instructor Guide",
+    "section": "Session overview",
+    "text": "Session overview\n\n\n\nSession\nLesson\nTime\nSlides\nDemo file\n\n\n\n\n1\nAPIs\n120 min\nAPIs/APIs.qmd\nAPIs/API_demonstration.qmd\n\n\n2\nWeb scraping\n120 min\nweb_scraping/web_scraping.qmd\nweb_scraping/web_scraping_demonstration.qmd, web_scraping/scraping_using_playwright.py\n\n\n\nEach session is planned for about 120 minutes: slides first, then the live demo.",
+    "crumbs": [
+      "Instructor Guide"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/index.html#the-materials",
+    "href": "pages/instructor/index.html#the-materials",
+    "title": "Instructor Guide",
+    "section": "The materials",
+    "text": "The materials\n\n\n\nFile or folder\nWhat’s in it\n\n\n\n\nindex.qmd, pages/\nThe website pages (home, setup, lessons, resources, archive, this guide)\n\n\nAPIs/, web_scraping/\nThe slides and demo files for each lesson\n\n\narchive/\nCopies of past slides, linked from the Archive page\n\n\n_quarto.yml\nWebsite settings: navigation, sidebar, theme\n\n\ndocs/\nThe rendered website. GitHub Pages serves this folder, so don’t edit it by hand",
+    "crumbs": [
+      "Instructor Guide"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/index.html#updating-the-website",
+    "href": "pages/instructor/index.html#updating-the-website",
+    "title": "Instructor Guide",
+    "section": "Updating the website",
+    "text": "Updating the website\n\nEdit the .qmd files.\nIn the terminal, from the course folder, run:\nquarto render\nThis rebuilds the whole site, including the slides, into docs/.\nCommit and push, including docs/. GitHub Pages updates a minute or two later.\n\nTo preview while you edit, run quarto preview instead. It opens the site in your browser and reloads when you save.\n\n\n\n\n\n\nNote\n\n\n\nThe site shows the demo code without running it (eval: false in _quarto.yml), because the demos call live websites and the Census API needs a key. Learners run the code themselves.",
+    "crumbs": [
+      "Instructor Guide"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/index.html#archiving-the-slides-at-the-end-of-a-term",
+    "href": "pages/instructor/index.html#archiving-the-slides-at-the-end-of-a-term",
+    "title": "Instructor Guide",
+    "section": "Archiving the slides at the end of a term",
+    "text": "Archiving the slides at the end of a term\nBefore you change the slides for a new term, save a copy of the current ones:\n\nRun quarto render so docs/ has the latest slides.\nMake a folder for the term, for example archive/2026-fall/.\nCopy docs/APIs/APIs.html and docs/web_scraping/web_scraping.html into it. The slides are self-contained (embed-resources: true), so each one is a single file.\nOn the Archive page (pages/archive.qmd), change the links in that term’s row to point to the copies, for example ../archive/2026-fall/APIs.html, and add a new row for the new term.\nRender, commit, and push.",
+    "crumbs": [
+      "Instructor Guide"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Beyond Downloading",
+    "section": "",
+    "text": "Welcome! Most research data starts with someone clicking Download. This course shows you how to get data with code instead, so your data pulls are reproducible, easy to update, and documented. You will request data from public health and biomedical APIs (PubMed, ClinicalTrials.gov, openFDA, CDC, the Census), and scrape data from web pages when there is no API.\nAll examples are in R. The dynamic web scraping example also uses Python (Playwright)."
+  },
+  {
+    "objectID": "index.html#what-youll-learn",
+    "href": "index.html#what-youll-learn",
+    "title": "Beyond Downloading",
+    "section": "What you’ll learn",
+    "text": "What you’ll learn\n\nExplain what an API is, and why researchers prefer APIs over scraping\nMake API requests and turn JSON responses into analysis-ready tables in R\nUse public health and biomedical APIs, including ones that need a key (the Census API)\nDecide when web scraping is appropriate, and follow the rules (robots.txt, Terms of Service)\nScrape static HTML tables with rvest, using XPaths and CSS selectors\nRecognize when a page needs a real browser (dynamic scraping), and automate one with Playwright\nRecord provenance (what you requested, when, and from where) so others can reproduce your data pull"
+  },
+  {
+    "objectID": "index.html#start-here",
+    "href": "index.html#start-here",
+    "title": "Beyond Downloading",
+    "section": "Start here",
+    "text": "Start here\n\nSetup: install R and the packages, get a Census API key, and download the course folder. Please do this before the first session.\nWork through the lessons in order:\n\n\n\n\n\n#\nLesson\nYou will learn\n\n\n\n\n1\nAPIs\nrequests, JSON, httr/httr2, NHANES, PubMed, ClinicalTrials.gov, openFDA, CDC (Socrata), Census\n\n\n2\nWeb scraping\nrobots.txt, the DOM, XPaths, rvest, static vs dynamic scraping, Playwright"
+  },
+  {
+    "objectID": "index.html#how-each-session-works",
+    "href": "index.html#how-each-session-works",
+    "title": "Beyond Downloading",
+    "section": "How each session works",
+    "text": "How each session works\n\n🖥️ Slides: the concepts, the rules, and a tour of the data sources. Every lesson page links to its slides, and you can download them.\n👀 Live demo: the instructor runs the demo code step by step, and you run the same code in your own copy of the demo file.\n\n\n\n\n\n\n\nTipLearning on your own?\n\n\n\nYou can! Each lesson page links to the slides and the full demo code. Download the demo file and run it one chunk at a time in R."
+  },
+  {
+    "objectID": "index.html#about-this-course",
+    "href": "index.html#about-this-course",
+    "title": "Beyond Downloading",
+    "section": "About this course",
+    "text": "About this course\nCreated by Max Wegener at the Cushing/Whitney Medical Library, Yale School of Medicine. Questions or feedback: maximilian.wegener@yale.edu.\nThe materials are on GitHub."
+  },
+  {
+    "objectID": "pages/archive.html",
+    "href": "pages/archive.html",
+    "title": "Archive",
+    "section": "",
+    "text": "The course is updated each time it is taught, because websites and APIs change. The current slides are always on the lesson pages. Past versions are kept here so you can find the version you attended.\n\n\n\nOffering\nLesson 1: APIs\nLesson 2: Web scraping\n\n\n\n\nFall 2026 (current)\nSlides (Aug 17, 2026)\nSlides (Aug 31, 2026)\n\n\n\nEach set of slides is a single HTML file. Open it in any browser, or right-click the link and choose Save Link As… to keep a copy."
+  },
+  {
+    "objectID": "pages/instructor/session-01.html",
+    "href": "pages/instructor/session-01.html",
+    "title": "Session 1: APIs",
+    "section": "",
+    "text": "Learner page: Lesson 1: APIs · Slides: APIs/APIs.qmd · Demo: APIs/API_demonstration.qmd",
+    "crumbs": [
+      "Instructor Guide",
+      "Session 1: APIs"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/session-01.html#prepare",
+    "href": "pages/instructor/session-01.html#prepare",
+    "title": "Session 1: APIs",
+    "section": "Prepare",
+    "text": "Prepare\n\nRun every chunk in API_demonstration.qmd the day before.\nCheck that your own Census key works (Sys.getenv(\"CENSUS_API_KEY\") != \"\").\nHave the API documentation pages open in browser tabs, so you can show where each parameter comes from.",
+    "crumbs": [
+      "Instructor Guide",
+      "Session 1: APIs"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/session-01.html#flow",
+    "href": "pages/instructor/session-01.html#flow",
+    "title": "Session 1: APIs",
+    "section": "Flow",
+    "text": "Flow\nThe session runs about 120 minutes.\n\nPart 1: API fundamentals: what an API is, data formats (CSV, JSON, XML), vocabulary, HTTP methods, status codes, the researcher loop.\nPart 2: Available APIs: REDCap, R packages, PubMed, ClinicalTrials.gov, openFDA, CDC Socrata, Census, UMLS.\nPart 3: Live demo: switch to API_demonstration.qmd.\nPart 4: Wrap-up: the resource table and the survey QR code.",
+    "crumbs": [
+      "Instructor Guide",
+      "Session 1: APIs"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/session-01.html#teaching-notes",
+    "href": "pages/instructor/session-01.html#teaching-notes",
+    "title": "Session 1: APIs",
+    "section": "Teaching notes",
+    "text": "Teaching notes\n\nThe same workflow every time. After the first two demos, ask learners to name the steps before you run them: endpoint, parameters, send, extract, parse, navigate. The syntax changes between APIs, but the workflow doesn’t.\nDrilling into JSON. The demos draw the list structure as a folder tree (dat → $esearchresult → $idlist). Run str() on the parsed object to show learners how to find the path themselves.\nopenFDA count. openFDA is built on Elasticsearch, so its search syntax supports Boolean logic in the URL. Point out the count parameter: instead of downloading 50,000 records to count in R, count=patient.drug.medicinalproduct.exact returns summary counts directly.\nCensus denominators. In public health, outcome data rarely comes with population denominators. The Census API provides them. Mention that ACS estimates always come with margins of error (the moe column), unlike administrative counts.\nUMLS. UMLS is the “Rosetta Stone” between coding systems: EHRs use SNOMED and LOINC, pharmacy data uses RxNorm, and billing uses ICD-10.\nhttr vs httr2. The demo uses both on purpose, because learners will see both in other people’s code. Recommend httr2 for new code.",
+    "crumbs": [
+      "Instructor Guide",
+      "Session 1: APIs"
+    ]
+  },
+  {
+    "objectID": "pages/instructor/session-01.html#known-problems",
+    "href": "pages/instructor/session-01.html#known-problems",
+    "title": "Session 1: APIs",
+    "section": "Known problems",
+    "text": "Known problems\n\nCensus key not loaded. If get_acs() fails, the key is usually missing from .Renviron, or R wasn’t restarted after adding it.\ncensus_api_key(..., install = TRUE) writes to .Renviron again. Tell learners who already added the key by hand that they can skip that chunk.\nSocrata dataset ID. The second Socrata chunk uses a fixed dataset ID (akn2-qxic). If CDC retires the dataset, use the ID returned by the catalog search in the chunk above it.\nRate limits. If many learners send requests at once from the same network, an API may return 429 Too Many Requests. Wait a minute and try again, and use it to explain rate limits.",
+    "crumbs": [
+      "Instructor Guide",
+      "Session 1: APIs"
+    ]
+  },
+  {
+    "objectID": "pages/lessons/01-apis.html",
+    "href": "pages/lessons/01-apis.html",
+    "title": "Lesson 1: APIs",
+    "section": "",
+    "text": "🖥️ View slides ⬇ Download slides (HTML) ⬇ Demo file (.qmd) ⬇ Whole course folder (ZIP)",
+    "crumbs": [
+      "Lessons",
+      "Lesson 1: APIs"
+    ]
+  },
+  {
+    "objectID": "pages/lessons/01-apis.html#what-is-an-api",
+    "href": "pages/lessons/01-apis.html#what-is-an-api",
+    "title": "Lesson 1: APIs",
+    "section": "What is an API?",
+    "text": "What is an API?\nAn Application Programming Interface (API) is a structured way to request data from a service. For researchers, an API is “programmable search + download”:\n\nPredictable formats: usually JSON, sometimes XML or CSV\nDocumented inputs: the parameters you can filter on\nStandardized outputs: the same fields every time\n\nEvery example in this lesson follows the same data journey:\nAPI Request ──► JSON / XML Response ──► Parse & Flatten in R\n            ──► Data Frame (Tibble) ──► (Optional) Save as CSV",
+    "crumbs": [
+      "Lessons",
+      "Lesson 1: APIs"
+    ]
+  },
+  {
+    "objectID": "pages/lessons/01-apis.html#the-researcher-loop",
+    "href": "pages/lessons/01-apis.html#the-researcher-loop",
+    "title": "Lesson 1: APIs",
+    "section": "The researcher loop",
+    "text": "The researcher loop\n\nIdentify source + documentation: read the API docs before writing any code\nDraft a query: fields, filters, and time range\nRequest data: respect rate limits\nValidate + clean: check dimensions, types, and missing values\nSave raw + processed data\nRecord provenance: URL, parameters, date, and API version",
+    "crumbs": [
+      "Lessons",
+      "Lesson 1: APIs"
+    ]
+  },
+  {
+    "objectID": "pages/lessons/01-apis.html#the-live-demo",
+    "href": "pages/lessons/01-apis.html#the-live-demo",
+    "title": "Lesson 1: APIs",
+    "section": "The live demo",
+    "text": "The live demo\nThe demo walks through six data sources, from easiest to hardest:\n\n\n\n\n\n\n\n\n\n#\nSource\nWhat it shows\nKey needed?\n\n\n\n\n1\nNHANES (nhanesA)\nAn R package that wraps an API; joining modules on SEQN\nNo\n\n\n2\nPubMed (NCBI E-utilities)\nBuilding a request with httr2; drilling into nested JSON\nNo (optional key raises the rate limit)\n\n\n3\nClinicalTrials.gov\nThe single-call httr style; flatten = TRUE\nNo\n\n\n4\nopenFDA\nField-specific search filters; limit and skip\nNo (optional key raises the rate limit)\n\n\n5\nCDC Open Data (Socrata)\nFinding a dataset in a catalog, then querying it\nNo\n\n\n6\nCensus (tidycensus)\nStoring a key safely; ACS variables; a formatted table\nYes\n\n\n\n👀 Open the demo code to follow along, or download the demo file above and run it one chunk at a time.",
+    "crumbs": [
+      "Lessons",
+      "Lesson 1: APIs"
+    ]
+  },
+  {
+    "objectID": "pages/lessons/01-apis.html#ground-rules",
+    "href": "pages/lessons/01-apis.html#ground-rules",
+    "title": "Lesson 1: APIs",
+    "section": "Ground rules",
+    "text": "Ground rules\n\nPrefer official APIs and bulk downloads over scraping\nRespect terms of use, rate limits, and institutional policy\nAvoid collecting PII/PHI\nUse caching and delays to reduce load on the server\nDocument provenance: what you requested, when, and from where",
+    "crumbs": [
+      "Lessons",
+      "Lesson 1: APIs"
+    ]
+  },
+  {
+    "objectID": "pages/lessons/01-apis.html#next",
+    "href": "pages/lessons/01-apis.html#next",
+    "title": "Lesson 1: APIs",
+    "section": "Next",
+    "text": "Next\nContinue to Lesson 2: Web scraping, or see Resources for API documentation links.",
+    "crumbs": [
+      "Lessons",
+      "Lesson 1: APIs"
+    ]
+  },
+  {
+    "objectID": "pages/resources.html",
+    "href": "pages/resources.html",
+    "title": "Resources",
+    "section": "",
+    "text": "TipTakeaway for researchers\n\n\n\nAlways check for an official API first. When there isn’t one, use polite + rvest for static sites and Playwright for dynamic web applications."
+  },
+  {
+    "objectID": "pages/resources.html#apis",
+    "href": "pages/resources.html#apis",
+    "title": "Resources",
+    "section": "APIs",
+    "text": "APIs\n\nLiterature and trials\n\nPubMed E-utilities: reproducible literature searches, PMID metadata, screening datasets\nClinicalTrials.gov API: trial registry metadata, eligibility criteria, reporting compliance\n\n\n\nTerminologies and coding\n\nUMLS REST API: crosswalk SNOMED CT, ICD-10, CPT, and LOINC through UMLS concept IDs (CUIs). Needs a free UTS account\nRxNav and RxNorm APIs: drug concepts, ingredients, and RxTerms hierarchies\nVSAC SVS API: NLM value set expansions and OIDs\n\n\n\nEHR and patient care\n\nMedlinePlus Connect: link diagnosis and drug codes to patient information\nOHDSI Athena: standardized vocabularies for the OMOP Common Data Model\nREDCap: export and import study data. Ask your REDCap administrator for an API token for your project\n\n\n\nSurveillance and FDA\n\nopenFDA: adverse event reports (FAERS), drug labels, device recalls\nCDC WONDER API: mortality and underlying cause of death\nSocrata API docs: the $select, $where, and $limit syntax used by CDC and many state data portals\n\n\n\nDemographics and local data\n\nCensus Developer Portal: population denominators and social determinants of health. Needs a free key\nCensus Reporter: search for ACS tables and variable codes\nCT Open Data Portal: Connecticut health and policy datasets (Socrata)"
+  },
+  {
+    "objectID": "pages/resources.html#web-scraping",
+    "href": "pages/resources.html#web-scraping",
+    "title": "Resources",
+    "section": "Web scraping",
+    "text": "Web scraping\n\nR tools and ethics\n\nrvest: the core static HTML parser (html_element(), html_text2(), html_table())\npolite: checks robots.txt and manages crawl delays for you\n\n\n\nBrowser automation\n\nPlaywright: modern browser automation for JavaScript-heavy pages, clicks, dropdowns, and downloads\nRSelenium: browser automation from R\n\n\n\nSelectors and inspecting pages\n\nCSS selectors (MDN): target elements by class (.class), ID (#id), or attribute ([attr=val])\nXPath syntax (W3Schools): navigate the HTML document tree\n\n\n\nCompliance\n\nrobotstxt (R package): check crawler rules in R with paths_allowed()\nThe Robots Exclusion Standard: what Disallow and Crawl-delay mean\n\n\n\nHealth data examples\n\nCDC FluView Interactive: a dynamic web app (the Playwright example in Lesson 2)\nWHO Data Portal: global health indicators"
+  },
+  {
+    "objectID": "pages/resources.html#packages-used-in-the-course",
+    "href": "pages/resources.html#packages-used-in-the-course",
+    "title": "Resources",
+    "section": "Packages used in the course",
+    "text": "Packages used in the course\n\n\n\nPackage\nWhat we use it for\n\n\n\n\nhttr2\nBuilding and sending API requests (modern, pipe-based)\n\n\nhttr\nSending API requests (older, single-call style)\n\n\njsonlite\nParsing JSON into R lists and data frames\n\n\nnhanesA\nNHANES survey data\n\n\ntidycensus\nCensus and ACS data\n\n\nrvest\nDownloading and parsing HTML\n\n\npolite, robotstxt\nScraping politely and checking robots.txt\n\n\ntidyverse\nData wrangling (dplyr, readr, tibble)\n\n\njanitor\nclean_names()\n\n\nflextable, scales\nFormatted tables and numbers"
+  },
+  {
+    "objectID": "pages/resources.html#questions",
+    "href": "pages/resources.html#questions",
+    "title": "Resources",
+    "section": "Questions?",
+    "text": "Questions?\nEmail maximilian.wegener@yale.edu."
+  },
+  {
+    "objectID": "APIs/APIs.html#welcome-goals",
+    "href": "APIs/APIs.html#welcome-goals",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Welcome + Goals",
+    "text": "Welcome + Goals\n\n\n\nToday you’ll learn to:\n\n\n\n\nExplain what an API is and why researchers use them\nMake API requests and parse JSON into analysis-ready tables using R and Python\nUse public health / biomedical APIs (including the Census API)"
+  },
+  {
+    "objectID": "APIs/APIs.html#why-learning-about-apis-matters",
+    "href": "APIs/APIs.html#why-learning-about-apis-matters",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Why Learning About APIs Matters",
+    "text": "Why Learning About APIs Matters\n\n\n\n\nReproducible data retrieval\nFaster updates and larger-scale studies\nCleaner provenance (query + timestamp + version)"
+  },
+  {
+    "objectID": "APIs/APIs.html#agenda",
+    "href": "APIs/APIs.html#agenda",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Agenda",
+    "text": "Agenda\n\n\n\n\nAPI Fundamentals and Background\nAvailable APIs\nLive R Demonstrations\nWrap-up & Resources"
+  },
+  {
+    "objectID": "APIs/APIs.html#part-1---api-fundamentals-and-background",
+    "href": "APIs/APIs.html#part-1---api-fundamentals-and-background",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Part 1 - API Fundamentals and Background",
+    "text": "Part 1 - API Fundamentals and Background"
+  },
+  {
+    "objectID": "APIs/APIs.html#ground-rules-for-research-integrity-compliance",
+    "href": "APIs/APIs.html#ground-rules-for-research-integrity-compliance",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Ground Rules for Research Integrity & Compliance",
+    "text": "Ground Rules for Research Integrity & Compliance\n\n\n\n\nPrefer official APIs and bulk downloads over scraping\nRespect terms of use, rate limits, and institutional policy\nAvoid collecting PII/PHI\nUse caching and delays to minimize server load\nDocument provenance: what you requested, when, from where"
+  },
+  {
+    "objectID": "APIs/APIs.html#what-is-an-api",
+    "href": "APIs/APIs.html#what-is-an-api",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "What is an API?",
+    "text": "What is an API?\n\n\n\nAn Application Programming Interface (API) is a structured way to request data from a service.\n\n\n\nFor researchers, APIs are “programmable search + download”:\n\n\n\n\nPredictable formats (often JSON, sometimes XML or CSV)\nDocumented inputs (parameters)\nStandardized outputs (fields)"
+  },
+  {
+    "objectID": "APIs/APIs.html#why-apis-are-preferred",
+    "href": "APIs/APIs.html#why-apis-are-preferred",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Why APIs are preferred",
+    "text": "Why APIs are preferred\n\n\n\n\nReproducible: same query, same retrieval method\nMore stable: APIs change less often than website layouts\nAutomatable: supports batching, scheduling, and pipelines\nTransparent: explicit parameters, documentation, and usage rules"
+  },
+  {
+    "objectID": "APIs/APIs.html#common-research-workflow",
+    "href": "APIs/APIs.html#common-research-workflow",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Common Research workflow",
+    "text": "Common Research workflow\n\n\n\nAPI Request ──► JSON / XML Response ──► Parse & Flatten in R ──► Data Frame (Table) ──► (Optional) Save as CSV"
+  },
+  {
+    "objectID": "APIs/APIs.html#common-data-formats-csv-json-and-xml",
+    "href": "APIs/APIs.html#common-data-formats-csv-json-and-xml",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Common Data Formats: CSV, JSON, and XML",
+    "text": "Common Data Formats: CSV, JSON, and XML\n\n\n\nThe Data Journey\n\nWhat the API sends back: JSON or XML\n\nHierarchical, nested key-value structures optimized for web transit.\n\nWhat R turns it into: Data Frame / Tibble\n\nR parses and “flattens” the nested JSON into rows and columns in memory so you can immediately run dplyr or ggplot2.\n\nWhat you can export to: CSV\n\nA flat, plain-text file format you can save to disk, open in Excel, or share with collaborators.\n\n\n\n\n\n\n\n\nNote\n\n\n💡 Bottom Line: Web systems speak JSON/XML. Researchers analyze Tables. R acts as the translator between the two."
+  },
+  {
+    "objectID": "APIs/APIs.html#csv-comma-separated-values",
+    "href": "APIs/APIs.html#csv-comma-separated-values",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "CSV (Comma-Separated Values)",
+    "text": "CSV (Comma-Separated Values)\n\n\n\nRaw CSV Text:\nid,age,sex\n101,42,F\n102,35,M"
+  },
+  {
+    "objectID": "APIs/APIs.html#json-javascript-object-notation",
+    "href": "APIs/APIs.html#json-javascript-object-notation",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "JSON (JavaScript Object Notation)",
+    "text": "JSON (JavaScript Object Notation)\n\n\n\nRaw JSON Structure:\n[\n  {\n    \"id\": 101,\n    \"age\": 42,\n    \"sex\": \"F\"\n  },\n  {\n    \"id\": 102,\n    \"age\": 35,\n    \"sex\": \"M\"\n  }\n]\n\n\n\nNote\n\n\nJSON stores data as nested key–value structures: flexible and web-friendly commonly used in modern APIs may require “flattening” into tables"
+  },
+  {
+    "objectID": "APIs/APIs.html#xml-extensible-markup-language",
+    "href": "APIs/APIs.html#xml-extensible-markup-language",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "XML (eXtensible Markup Language)",
+    "text": "XML (eXtensible Markup Language)\n\n\n\nRaw XML Structure:\n&lt;participants&gt;\n  &lt;participant&gt;\n    &lt;id&gt;101&lt;/id&gt;\n    &lt;age&gt;42&lt;/age&gt;\n    &lt;sex&gt;F&lt;/sex&gt;\n  &lt;/participant&gt;\n  &lt;participant&gt;\n    &lt;id&gt;102&lt;/id&gt;\n    &lt;age&gt;35&lt;/age&gt;\n    &lt;sex&gt;M&lt;/sex&gt;\n  &lt;/participant&gt;\n&lt;/participants&gt;\n\n\n\nNote\n\n\n\nXML organizes data using nested tags\nolder but still widely used in biomedical and government systems\nhighly structured and descriptive\ncommonly seen in legacy APIs and document-based databases"
+  },
+  {
+    "objectID": "APIs/APIs.html#core-vocabulary",
+    "href": "APIs/APIs.html#core-vocabulary",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Core vocabulary",
+    "text": "Core vocabulary\n\n\n\n\nEndpoint: the URL for a resource (e.g., /search)\nMethod: GET (retrieve), POST (submit query)\nParameters: filters like ?year=2023&state=CT\nAuth: key/token, sometimes OAuth\nRate limits: requests per time period\nPagination: page/offset/cursor for large results\nResponse: JSON objects you parse into tables\n\n\n\n\nNote\n\n\nWhat is pagination?\nPagination is how an API delivers large result sets in smaller “pages” to control load and response size.\nWhy pagination exists:\n\nprevents oversized responses\nimproves reliability\nsupports rate limiting"
+  },
+  {
+    "objectID": "APIs/APIs.html#common-http-methods-what-they-mean",
+    "href": "APIs/APIs.html#common-http-methods-what-they-mean",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Common HTTP methods (what they mean)",
+    "text": "Common HTTP methods (what they mean)\n\n\n\n\nGET — retrieve data (most common for research data pulls)\nPOST — submit a query or create a record (common for complex searches; also for systems like REDCap when writing data)\nPUT/PATCH — update a record (more common in operational systems than public datasets)\nDELETE — remove a record (rare in public data APIs)\n\n\n\n\nNote\n\n\nResearch norm: you’ll primarily use GET, and occasionally POST for “search” endpoints or authenticated systems."
+  },
+  {
+    "objectID": "APIs/APIs.html#status-codes-you-will-see-and-how-to-respond",
+    "href": "APIs/APIs.html#status-codes-you-will-see-and-how-to-respond",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Status codes you will see (and how to respond)",
+    "text": "Status codes you will see (and how to respond)\n\n\n\n\n200 OK — success\n400 Bad Request — your parameters are malformed\n401 Unauthorized — missing/invalid token\n403 Forbidden — you’re authenticated but not allowed (permissions/terms)\n404 Not Found — wrong endpoint or resource ID\n429 Too Many Requests — you hit a rate limit (slow down; retry later)\n500/503 — server problems (retry with backoff)"
+  },
+  {
+    "objectID": "APIs/APIs.html#how-researchers-use-apis-examples",
+    "href": "APIs/APIs.html#how-researchers-use-apis-examples",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "How researchers use APIs (examples)",
+    "text": "How researchers use APIs (examples)\n\n\n\n\nLiterature: retrieve PubMed metadata for reproducible searches\nSafety: monitor OpenFDA adverse event reports\nTrials: query ClinicalTrials.gov trial registries\nEHR & Clinical: extract patient cohort records via REDCap or SMART on FHIR\nOncology & Genomics: query patient outcomes and tumor data via NCI GDC\nSurveillance: download public health indicators and dashboards\nContext: integrate Census covariates into analyses\nBiomedical data: fetch gene expression datasets and biosample metadata from NCBI GEO"
+  },
+  {
+    "objectID": "APIs/APIs.html#api-workflow-the-researcher-loop",
+    "href": "APIs/APIs.html#api-workflow-the-researcher-loop",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "API workflow (the “researcher loop”)",
+    "text": "API workflow (the “researcher loop”)\n\n\n\n\nIdentify source + documentation\n\nDraft a query (fields, filters, time range)\n\nRequest data (respect limits)\n\nValidate + clean\n\nSave raw + processed data\n\nRecord provenance (URL, params, date, version)"
+  },
+  {
+    "objectID": "APIs/APIs.html#demonstration-approach-today-language-agnostic",
+    "href": "APIs/APIs.html#demonstration-approach-today-language-agnostic",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Demonstration approach today (language-agnostic)",
+    "text": "Demonstration approach today (language-agnostic)\n\n\n\nWe’ll show examples in R patterns: - build URL with params - GET request - parse JSON - transform to a table - export to CSV - log provenance"
+  },
+  {
+    "objectID": "APIs/APIs.html#part-2-available-apis",
+    "href": "APIs/APIs.html#part-2-available-apis",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Part 2 — Available APIs",
+    "text": "Part 2 — Available APIs"
+  },
+  {
+    "objectID": "APIs/APIs.html#availble-apis-you-can-access-more-or-less",
+    "href": "APIs/APIs.html#availble-apis-you-can-access-more-or-less",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Availble APIs you can access (more or less)",
+    "text": "Availble APIs you can access (more or less)\n\n\n\n\nREDCap\n\nNeed access to a REDCap project\nNeed to have an API Key from adminstrator and API Playground turned on for your project\n\nR Packages\n\nMany packages act as friendly clients to public data APIs or maintained data endpoints\n\nPubMed / NCBI E-utilities (literature metadata)\n\nhttps://www.ncbi.nlm.nih.gov/books/NBK25500/\n\nClinicalTrials.gov (trial registry metadata)\n\nhttps://clinicaltrials.gov/data-api/about-api\n\nOpenFDA (drugs, devices, adverse events)\n\nhttps://open.fda.gov/apis/\n\nCDC open data (often via Socrata patterns)\n\nhttps://wonder.cdc.gov/wonder/help/wonder-api.html\n\nCensus API (ACS, decennial, geography)\n\nhttps://www.census.gov/data/developers/data-sets.html\nNeed to have an API Key from census.gov\n\nUMLS API (medical terminologies: SNOMED, RxNorm, ICD-10)\n\nhttps://documentation.uts.nlm.nih.gov/rest/home.html\nNeed to have an API Key from UTS account (uts.nlm.nih.gov)"
+  },
+  {
+    "objectID": "APIs/APIs.html#redcap-apis-download-and-upload",
+    "href": "APIs/APIs.html#redcap-apis-download-and-upload",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "REDCap APIs (download and upload)",
+    "text": "REDCap APIs (download and upload)\n\n\n\n\n\n\nNote\n\n\nMany institutions run REDCap, which includes an API for:\n\n\n\n\n\n\n\nexporting data (CSV/JSON)\nimporting/updating records\nexporting metadata (data dictionaries)\nmanaging instruments/events (project-dependent)\n\n\n\n\n\n\n\nNote\n\n\nIn practice, this enables reproducible pulls of study data and automated pipelines for cleaning/QA workflows."
+  },
+  {
+    "objectID": "APIs/APIs.html#example-of-r-packages-that-provide-api-style-access",
+    "href": "APIs/APIs.html#example-of-r-packages-that-provide-api-style-access",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Example of R packages that provide API-style access",
+    "text": "Example of R packages that provide API-style access\n\n\n\n\ncdcfluview (influenza surveillance-related retrieval patterns)\nRNSSP (syndromic surveillance access patterns, where available/authorized)\nNHANES (NHANES data retrieval and convenience functions)\n\n\n\n\n\n\n\n\n\n\n\nReproducible Practices\n\n\nWhen using package-based access, still apply the same habits:\n\nRecord package version\nRecord query parameters\nRecord access date/time and dataset version"
+  },
+  {
+    "objectID": "APIs/APIs.html#pubmed-ncbi-e-utilities-literature-metadata",
+    "href": "APIs/APIs.html#pubmed-ncbi-e-utilities-literature-metadata",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "PubMed (NCBI E-utilities) — Literature Metadata",
+    "text": "PubMed (NCBI E-utilities) — Literature Metadata\n\n\n\nKey Research Use Cases\n\nReproducible Literature Workflows: Script PubMed queries to rerun searches automatically and log exact record counts.\nSynthesizing Evidence: Pull titles, abstracts, and publication dates directly into R/Python for screening.\nMeSH & Bibliometric Analysis: Harvest Medical Subject Headings and citation metadata for field mapping.\n\n\n\n\n\n\n\n⚠️ NCBI Usage Guidelines\n\n\n\nRate Limits: 3 requests/sec default \\(\\rightarrow\\) 10 requests/sec with a free NCBI API Key.\nIdentification: Always pass your email and tool name in API calls so NCBI doesn’t block your IP.\nOutput Format: E-utilities returns XML (use R’s rentrez or xml2 packages to parse into tables)."
+  },
+  {
+    "objectID": "APIs/APIs.html#clinicaltrials.gov-trial-registry-metadata",
+    "href": "APIs/APIs.html#clinicaltrials.gov-trial-registry-metadata",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "ClinicalTrials.gov — Trial Registry Metadata",
+    "text": "ClinicalTrials.gov — Trial Registry Metadata\n\n\n\nKey Research Use Cases\n\nLandscape Scans: Find trials by condition, drug/intervention, location, phase, or sponsor type.\nMeta-Research & Compliance: Compare primary outcomes to published literature and monitor reporting compliance (FDAAA 801).\nEligibility Criteria Mining: Extract inclusion/exclusion criteria text for computable phenotype design.\n\n\n\n\n\n\n\nNote\n\n\n💡 API Practicalities: Uses the modernized v2 REST API (JSON output). No API key is required, making it ideal for quick scripting and reproducible workflows."
+  },
+  {
+    "objectID": "APIs/APIs.html#openfda-adverse-events-drug-labeling",
+    "href": "APIs/APIs.html#openfda-adverse-events-drug-labeling",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "openFDA — Adverse Events & Drug Labeling",
+    "text": "openFDA — Adverse Events & Drug Labeling\n\n\n\n💊 Research Use Cases\n\nPharmacovigilance & Safety Signals: Scan post-marketing FDA adverse event reports (FAERS) for unexpected side effects.\nDrug Labeling & Package Inserts: Search structured drug labels for contraindications, black box warnings, or active ingredients.\nMedical Devices & Recalls: Query device clearance data (510k), enforcement reports, and recall actions.\n\n\n\n\n\n\n\n🔑 API Quick Facts\n\n\n\nAuth: 🟢 No key required for testing (Optional free key raises limit to 240 req/min)\nFormat: JSON | Endpoint: https://api.fda.gov/drug/event.json\nTeaching Highlights:\n\nNative count parameter for instant aggregations without downloading raw records\nPerfect for teaching API search parameters, filtering, and pagination (limit & skip)\n\n\n\n\n\n\n\nopenFDA is built on Elasticsearch, meaning its search parameter syntax allows complex Boolean logic directly in the URL query string.\nHighlight the count parameter: instead of downloading 50,000 JSON records to tabulate in R, count=patient.drug.medicinalproduct.exact lets the API do the aggregation server-side and return summary counts instantly!"
+  },
+  {
+    "objectID": "APIs/APIs.html#cdc-open-data-socrata-soql-queries",
+    "href": "APIs/APIs.html#cdc-open-data-socrata-soql-queries",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "CDC Open Data — Socrata & SoQL Queries",
+    "text": "CDC Open Data — Socrata & SoQL Queries\n\n\n\nKey Research Use Cases\n\nSurveillance & Dashboards: Query municipal and national health indicators (e.g., NCHS mortality data, surveillance trends).\nServer-Side Data Subsetting: Filter massive datasets on CDC servers before pulling them into R/Python.\n\n\n\n\n\n\n\n💡 SoQL (Socrata Query Language) Syntax\n\n\nSocrata APIs support SQL-style parameters in the request URL: * $select=date, state, cases — Select only columns of interest * $where=state='CT' AND cases &gt; 100 — Apply logical filters * $limit=5000 — Control payload size\nExample Endpoint: https://data.cdc.gov/resource/{dataset_id}.json?$where=state='CT'"
+  },
+  {
+    "objectID": "APIs/APIs.html#census-api-population-context-social-determinants",
+    "href": "APIs/APIs.html#census-api-population-context-social-determinants",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Census API — Population Context & Social Determinants",
+    "text": "Census API — Population Context & Social Determinants\n\n\n\n🏙️ Research Use Cases\n\nPopulation Denominators: Convert raw disease/outcome counts into standardized rates (e.g., per 100,000 population).\nSocial Determinants of Health (SDoH): Integrate neighborhood-level covariates (median household income, poverty rate, education, internet access, health insurance coverage).\nFine-Grained Geographies: Query small administrative units—from state and county down to ZIP Code Tabulation Areas (ZCTAs), Census Tracts, and Block Groups.\nTrend & Disparities Analysis: Compare multi-year American Community Survey (ACS 1-year and 5-year) estimates over time.\n\n\n\n\n\n\n\n📊 Key Datasets & Products\n\n\n\nACS (American Community Survey): Annual sample survey; 5-year estimates offer high precision at small geographies (Tract/ZCTA). Includes estimates (E) and Margins of Error (M).\nDecennial Census: Complete 10-year enumeration (2000, 2010, 2020) for exact total counts and basic demographics.\n\n\n\n\n\n\n\n\n\nEmphasize that in public health/biomedical informatics, outcome data rarely comes with demographic denominators—the Census API provides those denominators.\nMention ACS Margins of Error (MOEs): unlike simple administrative databases, ACS data always includes sampling uncertainty.\n\n\n\n\n\nUS Census API — Key Setup & R Integration\n\n\n\n\n\n\nNote\n\n\n\nRequest a Free Key: Sign up in seconds at https://api.census.gov/data/key_signup.html\nSecurely Store in R (.Renviron): Use the tidycensus package helper to save your key permanently without hardcoding credentials in your scripts:"
+  },
+  {
+    "objectID": "APIs/APIs.html#umls-api-medical-terminologies-crosswalking",
+    "href": "APIs/APIs.html#umls-api-medical-terminologies-crosswalking",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "UMLS API — Medical Terminologies & Crosswalking",
+    "text": "UMLS API — Medical Terminologies & Crosswalking\n\n\n\n🩺 Research Use Cases\n\nTerminology Crosswalking: Map concepts across different coding systems (e.g., bridge an ICD-10 billing code to a SNOMED CT clinical term or RxNorm drug concept).\nConcept Normalization: Standardize free-text clinical notes or diagnostic terms to unique UMLS Concept Unique Identifiers (CUIs).\nSemantic Relationships: Query parent/child hierarchies, synonyms, and definitions across 200+ biomedical vocabularies (LOINC, MeSH, CPT, etc.).\nPhenotype & Cohort Building: Expand clinical query definitions by fetching all related source-asserted codes for a disease or treatment.\n\n\n\n\n\n\n\n📊 Key Metathesaurus Features\n\n\n\nCUIs (Concept Unique Identifiers): Universal cluster IDs that link identical meanings across distinct source vocabularies.\nSemantic Network: Categorizes concepts into broad semantic types (e.g., Disease or Syndrome, Pharmacologic Substance).\n\n\n\n\n\n\nUMLS is maintained by the NIH National Library of Medicine (NLM).\nEmphasize that in biomedical informatics, different databases use different coding standards (e.g., EHRs use SNOMED/LOINC, pharmacy data uses RxNorm, billing uses ICD-10). UMLS is the “rosetta stone” connecting them."
+  },
+  {
+    "objectID": "APIs/APIs.html#part-3-live-r-demonstrations",
+    "href": "APIs/APIs.html#part-3-live-r-demonstrations",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Part 3: Live R Demonstrations",
+    "text": "Part 3: Live R Demonstrations\n\n💻 Time for Live Coding\n\nPlease switch over to your editor and open:\nAPI_demonstration.qmd"
+  },
+  {
+    "objectID": "APIs/APIs.html#part-4-wrap-up-handy-resources",
+    "href": "APIs/APIs.html#part-4-wrap-up-handy-resources",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Part 4: Wrap-Up & Handy Resources",
+    "text": "Part 4: Wrap-Up & Handy Resources\n\n\n\n🔗 Essential API & Data Resource Index\n\n\n\nCategory\nResource & Explicit URL\nPurpose & Highlights\n\n\n\n\nLiterature & Trials\nPubMed E-utilitieshttps://www.ncbi.nlm.nih.gov/books/NBK25500/ClinicalTrials.gov APIhttps://clinicaltrials.gov/data-api/about-api\nReproducible search, PMID metadata, screening pipelines.Trial registry metadata, eligibility text, compliance tracking.\n\n\nTerminologies & Coding\nUMLS REST APIhttps://documentation.uts.nlm.nih.gov/rest/home.htmlRxNav & RxNorm APIshttps://lhncbc.nlm.nih.gov/RxNav/APIs/index.htmlVSAC SVS APIhttps://www.nlm.nih.gov/vsac/support/usingvsac/vsacsvsapiv2.html\nCrosswalk SNOMED, ICD-10, CPT, and LOINC via CUIs.Query drug concepts, ingredients, and RxTerms hierarchies.Programmatically retrieve NLM value set expansions and OIDs.\n\n\nEHR & Patient Care\nMedlinePlus Connecthttps://medlineplus.gov/medlineplus-connect/OHDSI / Athenahttps://athena.ohdsi.org/search-terms/start\nLink diagnosis/drug codes (Infobutton standard) to patient info.Download standardized vocabularies for the OMOP CDM.\n\n\nSurveillance & FDA\nopenFDAhttps://open.fda.gov/apis/CDC WONDER APIhttps://wonder.cdc.gov/wonder/help/wonder-api.htmlSocrata Portal Docshttps://dev.socrata.com/docs/endpoints\nAdverse event reporting (FAERS), drug labels, and device recalls.SQL-like query interface for underlying cause of death & mortality.Generic syntax guide ($select, $where, $limit) for municipal/state portals.\n\n\nDemographics & Local\nCensus Developer Portalhttps://www.census.gov/data/developers/data-sets.htmlCT Open Data Portalhttps://data.ct.gov\nPopulation denominators, SDoH metrics, and spatial boundaries.State-level health & policy datasets in a Socrata wrapper.\n\n\n\n\n\n\n📧 Thank You & Stay Connected!\n\nQuestions or Feedback? Email: maximilian.wegener@yale.edu"
+  },
+  {
+    "objectID": "APIs/APIs.html#survey",
+    "href": "APIs/APIs.html#survey",
+    "title": "Beyond Downloading: Automating Data Retrieval with APIs",
+    "section": "Survey",
+    "text": "Survey\n\n\n\nPlease scan the QR code to take the class survey"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#welcome-goals",
+    "href": "web_scraping/web_scraping.html#welcome-goals",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Welcome + Goals",
+    "text": "Welcome + Goals\n\n\n\nToday you’ll learn to:\n\nDetermine when web scraping is appropriate and navigate legal/ethical norms (robots.txt, Terms of Service)\nParse static HTML content and tables using R (rvest) and CSS selectors\nHandle structured data extraction across multi-page listings safely and politely\nUnderstand authenticated scraping patterns without exposing credentials"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#what-is-web-scraping",
+    "href": "web_scraping/web_scraping.html#what-is-web-scraping",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "What is Web Scraping?",
+    "text": "What is Web Scraping?\nProgrammatically extracting data directly from web pages (HTML/DOM).\n\n\n\n💡 When do you need web scraping?\n\n\n\n\n\n\n\nNo official API exists for the target data source\nAPIs are heavily restricted, rate-limited, or paywalled\nData is only rendered on public HTML (e.g., directory listings, public tables, news archives)"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#why-web-scraping-matters",
+    "href": "web_scraping/web_scraping.html#why-web-scraping-matters",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Why Web Scraping Matters",
+    "text": "Why Web Scraping Matters\n\n\n\n\nFills data gaps when official APIs are unavailable\nAutomates extraction from multi-page HTML structures at scale\nEnsures reproducibility when paired with raw HTML snapshots, parsing scripts, and timestamps\nRequires ethical oversight (robots.txt, Terms of Service, and polite rate-limiting)"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#agenda",
+    "href": "web_scraping/web_scraping.html#agenda",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Agenda",
+    "text": "Agenda\n\n\n\n\nWeb Scraping Fundamentals and Background\nHands-On Scraping Objectives\nLive R Demonstrations\nWrap-up & Resources"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#part-1---web-scraping-fundamentals-and-background",
+    "href": "web_scraping/web_scraping.html#part-1---web-scraping-fundamentals-and-background",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Part 1 - Web Scraping Fundamentals and Background",
+    "text": "Part 1 - Web Scraping Fundamentals and Background"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#ground-rules-for-web-scraping-compliance",
+    "href": "web_scraping/web_scraping.html#ground-rules-for-web-scraping-compliance",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Ground Rules for Web Scraping & Compliance",
+    "text": "Ground Rules for Web Scraping & Compliance\n\n\n\n\nPrefer official APIs and bulk downloads over scraping when available\nRespect terms of service, robots.txt, and website usage policies\nAvoid collecting PII/PHI or proprietary gated data\nUse request delays (Sys.sleep()) and caching to avoid server overload\nDocument provenance: URL, CSS selectors/XPaths, scraping timestamp, and raw HTML snapshot\n\n\n\n\n💡 What is robots.txt & How to Check It?\n\n\nrobots.txt is a text file hosted at a site’s root URL (e.g., domain.com/robots.txt) outlining rules for web crawlers:\n\nWhat to look for:\n\nUser-agent: Which bots/browsers the rule applies to (* = all)\nDisallow: URL paths off-limits to scrapers (e.g., /admin/, /private/)\nCrawl-delay: Recommended wait time between requests (in seconds)\n\nHow to check programmatically:\n\nR: robotstxt::paths_allowed(\"https://example.com/page\")\nPython: urllib.robotparser.RobotFileParser()\n🤖 Automated Handling: Higher-level R packages (like polite) and Python tools (scrapy) inspect, parse, and enforce robots.txt rules and crawl delays automatically behind the scenes before making requests!"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#when-scraping-should-be-used",
+    "href": "web_scraping/web_scraping.html#when-scraping-should-be-used",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "When Scraping Should Be Used…",
+    "text": "When Scraping Should Be Used…\n\n\n\n\nNo official API or bulk download exists for the source data\nAPIs are incomplete or cost-prohibitive compared to public HTML access\nData is embedded in public web pages (e.g., directory tables, news archives, regulatory notices)\nCapturing visual context or exact web layout is necessary for research auditability"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#common-research-workflow",
+    "href": "web_scraping/web_scraping.html#common-research-workflow",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Common Research Workflow",
+    "text": "Common Research Workflow\n\n\n\nHTTP GET Request ──► Raw HTML Document ──► Parse DOM (rvest) ──► Extract Nodes via CSS/XPath ──► Clean & Flatten ──► Data Frame (Table)\n\n\n\n💡 What is the DOM?\n\n\nDOM (Document Object Model): The tree-like structure a browser builds when loading an HTML web page. It organizes elements—like tables (&lt;table&gt;), headings (&lt;h1&gt;), and links (&lt;a&gt;)—into nested nodes that R (rvest) can search and extract."
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#types-of-dom-nodes",
+    "href": "web_scraping/web_scraping.html#types-of-dom-nodes",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Types of DOM Nodes",
+    "text": "Types of DOM Nodes\n\n\n\nUnderstanding node types helps when targeting specific content during web scraping:\n\n\n\n\n\n\n\n\nNode Type\nDescription\nScraping Relevance\n\n\n\n\nDocument Node\nRepresents the entire document root (html)\nThe starting point loaded by rvest::read_html()\n\n\nElement Node\nRepresents an HTML tag (e.g., &lt;div&gt;, &lt;table&gt;, &lt;a&gt;)\nTarget nodes matched using CSS selectors or XPath\n\n\nAttribute Node\nRepresents metadata inside a tag (e.g., href=\"...\", class=\"...\")\nExtracted via html_attr() (e.g., getting URLs)\n\n\nText Node\nRepresents the actual string text inside an element\nExtracted via html_text() or html_text2()\n\n\nComment Node\nRepresents internal code comments (&lt;!-- ... --&gt;)\nIgnored during parsing unless specifically needed\n\n\n\n\n\n\n\n\n\n💡 Scraping Rule of Thumb\n\n\nWhen web scraping in R: - You locate Element Nodes (html_elements()) - You pull values from Text Nodes (html_text2()) or Attribute Nodes (html_attr())"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#common-data-formats-html-selectors-and-tables",
+    "href": "web_scraping/web_scraping.html#common-data-formats-html-selectors-and-tables",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Common Data Formats: HTML, Selectors, and Tables",
+    "text": "Common Data Formats: HTML, Selectors, and Tables\n\n\n\nThe Data Journey\n\nWhat the web server sends back: HTML Document\n\nSemi-structured text marked up with tags (&lt;div&gt;, &lt;table&gt;, &lt;a&gt;), classes, and IDs designed for visual browser rendering.\n\nHow R targets specific content: CSS Selectors / XPath\n\nSearch paths passed into rvest::html_elements() to pinpoint precise nodes (e.g., extracting links via href attributes).\n\nWhat R parses it into: Data Frame / Tibble\n\nFunctions like html_table() or html_text2() extract text nodes and automatically structure them into rows and columns in memory.\n\nWhat you can export to: CSV or Database\n\nA clean, flat table ready for dplyr transformations, local saving, or sharing with collaborators.\n\n\n\n\n\n\n\n\nNote\n\n\n💡 Bottom Line: Web systems present Visual HTML. Researchers analyze Clean Tables. R (rvest) acts as the scraper that translates DOM nodes into structured data frames."
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#two-main-approaches-to-web-scraping",
+    "href": "web_scraping/web_scraping.html#two-main-approaches-to-web-scraping",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Two Main Approaches to Web Scraping",
+    "text": "Two Main Approaches to Web Scraping\n\n\n\n\n\n\n\n\n\n\n\nFeature\n1. Static HTML Scraping (HTTP/DOM)\n2. Dynamic / Headless Scraping\n\n\n\n\nHow it Works\nFetches raw HTML directly from server\nLaunches automated browser engine to execute JavaScript\n\n\nPrimary Tools (R)\nrvest, httr2, xml2\nchromote, RSelenium\n\n\nSpeed & Resource Load\n⚡ Extremely fast; lightweight network requests\n🐢 Slower; high memory & CPU consumption\n\n\nBest Used For\nServer-rendered pages, static tables, news articles, directories\nSingle Page Apps (React/Vue), infinite scroll, interactive dashboards\n\n\nMain Limitation\nCannot render content built dynamically by browser JavaScript\nHarder to set up; higher risk of browser crash or detection\n\n\n\n\n\n\n\n\n\n📝 Quick Note!\n\n\nStatic scraping (rvest / BeautifulSoup)\nOnly reads static page text. It can’t “see” an interactive form or keep track of your browser session easily.\nDynamic scraping (chromote / Playwright / Selenium)\nControls an actual browser. It can type your username into an input box, type your password, click “Log In”, wait for your authenticated session cookie to register, and then access the private page.\n\n\n\n\n\n\n\n\n\n💡 Recommended Research Rule\n\n\nAlways start with Static HTML Scraping (rvest) first. Only escalate to headless browser tools (chromote) if the target content is rendered dynamically via JavaScript after page load."
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#core-web-scraping-vocabulary",
+    "href": "web_scraping/web_scraping.html#core-web-scraping-vocabulary",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Core Web Scraping Vocabulary",
+    "text": "Core Web Scraping Vocabulary\n\n\n\n\nURL / Target Page: The target web address containing the data (https://example.edu/faculty)\nRequest / Navigation:\n\nStatic: Sends a direct HTTP GET request to fetch static HTML code.\nDynamic: Instructs a browser engine to navigate & render dynamic JavaScript.\n\nUser-Agent: Request header string identifying your scraper to the host server (e.g., \"Yale Library Research Bot\").\nPoliteness Delay: Inserting intentional pauses (Sys.sleep()) between page requests or clicks to prevent server overload.\nCookies & Sessions:\n\nStatic: Manually attached to request headers.\nDynamic: Managed automatically by the browser engine after submitting logins or interacting with form inputs.\n\nPagination / Crawling:\n\nStatic: Querying sequential page parameter URLs (?page=1, ?page=2) or pulling static href links.\nDynamic: Simulating automated clicks on “Next / Load More” buttons or triggering infinite scroll.\n\n\n\n\n\n\n\n\n💡 Key Takeaway for Pagination\n\n\nStatic scraping relies on inspecting URLs and link structures (href). Dynamic scraping can physically interact with site elements—clicking buttons and waiting for the DOM to refresh."
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#http-status-codes-scrapers-encounter",
+    "href": "web_scraping/web_scraping.html#http-status-codes-scrapers-encounter",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "HTTP Status Codes Scrapers Encounter",
+    "text": "HTTP Status Codes Scrapers Encounter\n\n\n\n\n200 OK — Success! Page HTML downloaded properly\n403 Forbidden — Access denied (blocked by web firewall, robots.txt, or missing User-Agent)\n404 Not Found — Page URL moved, deleted, or mis-typed\n429 Too Many Requests — Rate limit triggered! You scraped too fast without politeness delays\n500 / 503 Server Error — The host server failed or is under high load (pause and retry with backoff)\n\n\n\n\n⚠️ Defensive Scraping Strategy\n\n\nAlways check status codes! If your script receives a 429 or 403, stop immediately and adjust your request rate (Sys.sleep()) or request headers."
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#so-how-do-researchers-use-web-scraping",
+    "href": "web_scraping/web_scraping.html#so-how-do-researchers-use-web-scraping",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "So, How Do Researchers Use Web Scraping?",
+    "text": "So, How Do Researchers Use Web Scraping?\n\n\n\n\nHealth Policy: Scrape state health department press releases and policy updates\nDirectories: Extract faculty profiles, clinical facility listings, or committee rosters\nGray Literature: Collect regulatory reports, white papers, and non-indexed PDFs\nSurveillance: Monitor public hospital bed availability or outbreak dashboards\nGrant & Funding Tracking: Audit institutional awards and research project listings\nNews Archives: Build media text corpora for natural language processing (NLP)"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#web-scraping-workflow-the-researcher-loop",
+    "href": "web_scraping/web_scraping.html#web-scraping-workflow-the-researcher-loop",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Web Scraping Workflow (The “Researcher Loop”)",
+    "text": "Web Scraping Workflow (The “Researcher Loop”)\n\n\n\n\nIdentify source + inspect DOM: Review site robots.txt, Terms of Service, and target table structure.\nDraft selector strategy: Identify target XPaths (e.g., //*[@id=\"mwAaI\"]/table) or CSS class selectors.\nFetch web page: Download page HTML into R memory using read_html() (passes standard GET headers).\nExtract & clean data: Target specific nodes with html_element() and convert to tibbles with html_table() + janitor::clean_names().\nSave HTML snapshot: Store local HTML snapshots (write_html()) alongside processed CSVs for research auditability and reproducibility.\nRecord provenance: Log the target URL, XPath selectors, scraping timestamp, and R package session info.\n\n\n\n\n\n💡 Workshop Tip Steps 3 and 4 directly mirror your code: read_html() pulls the entire document tree into page once, and your custom scrape_by_xpath() function executes Step 4 across multiple table paths."
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#demonstration-pattern-today-r-rvest",
+    "href": "web_scraping/web_scraping.html#demonstration-pattern-today-r-rvest",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Demonstration Pattern Today (R / rvest)",
+    "text": "Demonstration Pattern Today (R / rvest)\n\n\n\nWe’ll demonstrate a reproducible R pattern using the Wikipedia COVID-19 dataset:\n\nInspect Page Structure: Use browser Developer Tools to find target element XPaths / CSS selectors\nDownload HTML Source: Read raw web page code into R memory (read_html())\nLocate Target Nodes: Target specific DOM elements using XPaths or CSS (html_element())\nExtract Structured Data: Parse tabular HTML directly into data frames (html_table()) or text (html_text2())\nClean & Modularize: Transform raw outputs using janitor::clean_names(), dplyr, and custom reusable functions\n\n\n\n\n\n\n\n💡 Note on Extraction\n\n\nWhile html_text2() and html_attr() are used for pulling raw text or link URLs from generic HTML nodes, html_table() is specifically built to convert HTML &lt;table&gt; tags directly into R data frames!"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#part-2---hands-on-scraping-objectives",
+    "href": "web_scraping/web_scraping.html#part-2---hands-on-scraping-objectives",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Part 2 - Hands-On Scraping Objectives",
+    "text": "Part 2 - Hands-On Scraping Objectives"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#case-study-1-static-html-scraping-wikipedia",
+    "href": "web_scraping/web_scraping.html#case-study-1-static-html-scraping-wikipedia",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Case Study 1: Static HTML Scraping (Wikipedia)",
+    "text": "Case Study 1: Static HTML Scraping (Wikipedia)\n\n\n\nWhat We Are Scraping\nExtracting global COVID-19 pandemic case counts and mortality data by country directly from Wikipedia.\nSTEP 1 – Open the Page & Inspect the DOM\n\nVisit COVID-19 pandemic by country and territory in your browser.\nRight-click anywhere inside the main data table \\(\\rightarrow\\) click Inspect (or “Inspect Element”).\nHover over elements in DevTools to highlight the target &lt;table&gt; on the live webpage.\n\nSTEP 2 – Locate & Target the Element\n\nThe target content lives inside &lt;div class=\"mw-parser-output\"&gt;.\nThe data table itself is a &lt;table class=\"wikitable sortable\"&gt; element.\nRight-click the &lt;table&gt; tag in DevTools \\(\\rightarrow\\) Copy \\(\\rightarrow\\) Copy XPath (not “Copy full XPath”).\n\n\n\n\nNote\n\n\nExample XPath:\n//*[@id=\"mwAaI\"]/table\nThe full XPath (/html/body/div[3]/...) describes the page after the browser runs its JavaScript, so it often finds nothing in the raw HTML that R downloads."
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#case-study-2-dynamic-browser-scraping-cdc-fluview",
+    "href": "web_scraping/web_scraping.html#case-study-2-dynamic-browser-scraping-cdc-fluview",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Case Study 2: Dynamic Browser Scraping (CDC FluView)",
+    "text": "Case Study 2: Dynamic Browser Scraping (CDC FluView)\n\n\n\nWhat We Are Scraping\nAutomating interaction with the CDC FluView Portal to request and download influenza surveillance datasets.\nWhy Static Parsing (rvest) Fails Here\nThe data isn’t present in raw HTML—it requires JavaScript rendering, handling modal overlays, selecting form options, and triggering browser click events.\nAutomation Step-by-Step (Playwright)\n\nNavigate: Launch a headless browser session to the CDC FluView web app.\nOpen Download Modal: Locate and click the “Download Data” interface button.\nConfigure Options: Select the “Custom Download” radio button option.\nSelect Parameters: Open the season dropdown and choose “2025-2026”.\nExecute Download: Click the export button, accept the browser file prompt, and save the raw file to disk."
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#part-3---hands-on-code-execution",
+    "href": "web_scraping/web_scraping.html#part-3---hands-on-code-execution",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Part 3 - Hands-On Code Execution",
+    "text": "Part 3 - Hands-On Code Execution\n\n💻 Time for Live Coding\n\nPlease navigate to and open:\nweb_scraping_demonstration.qmd"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#part-4-wrap-up-handy-web-scraping-resources",
+    "href": "web_scraping/web_scraping.html#part-4-wrap-up-handy-web-scraping-resources",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Part 4: Wrap-Up & Handy Web Scraping Resources",
+    "text": "Part 4: Wrap-Up & Handy Web Scraping Resources\n\n\n\n🔗 Essential Web Scraping Toolkit & Reference Index\n\n\n\nCategory\nResource & URL\nPurpose & Key Highlights\n\n\n\n\nR Scraping & Ethics\nrvest (Tidyverse)https://rvest.tidyverse.org/politehttps://dmi3kno.github.io/polite/\nCore static HTML parser; extract nodes, text (html_text2), and tables (html_table).Ethical scraping wrapper; automatically checks robots.txt and manages crawl delays.\n\n\nDynamic Browser Automation\nPlaywright (Python/Node/R)https://playwright.dev/RSeleniumhttps://docs.ropensci.org/RSelenium/\nModern headless browser automation; handles JavaScript rendering, clicks, dropdowns, and file downloads.R interface for W3C WebDriver; automates browser interaction across dynamic sites.\n\n\nSelectors & Inspection\nCSS Selectors Reference (MDN)https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_SelectorsXPath Syntax Guide (W3Schools)https://www.w3schools.com/xml/xpath_syntax.asp\nGuide for targeting DOM elements by class (.class), ID (#id), or attribute ([attr=val]).Syntax reference for traversing hierarchical XML/HTML document trees.\n\n\nCompliance & Governance\nrobotstxt (R Package)https://github.com/ropensci/robotstxtW3C Robot Exclusion Standardhttps://www.robotstxt.org/\nProgrammatic parsing of domain robots.txt files directly in R via paths_allowed().Official standard documentation for crawler rules, Disallow directives, and Crawl-delay.\n\n\nHealth Data Web Targets\nCDC FluView Interactivehttps://gis.cdc.gov/grasp/fluview/main.htmlWHO Data Portalhttps://www.who.int/data\nExample of a dynamic web application requiring Playwright to trigger file export downloads.Global health metrics and epidemiological table listings for static or dynamic extraction.\n\n\n\n\n\n\nTip\n\n\n💡 Takeaway for Researchers: Always check for an official REST API first. When an API isn’t available, combination workflows—using polite + rvest for static sites and Playwright for dynamic applications—provide a robust, reproducible data retrieval pipeline.\n\n\n\n\n\n\n📧 Thank You & Stay Connected!\n\nQuestions or Feedback? Email: maximilian.wegener@yale.edu"
+  },
+  {
+    "objectID": "web_scraping/web_scraping.html#survey",
+    "href": "web_scraping/web_scraping.html#survey",
+    "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
+    "section": "Survey",
+    "text": "Survey\n\n\n\nPlease scan the QR code to take the class survey"
+  }
+]

@@ -1,0 +1,87 @@
+---
+title: "Resources"
+subtitle: "Documentation, tools, and references for APIs and web scraping"
+---
+
+::: callout-tip
+## Takeaway for researchers
+
+Always check for an official API first. When there isn't one, use **`polite` + `rvest`** for static sites and **Playwright** for dynamic web applications.
+:::
+
+## APIs
+
+### Literature and trials
+
+-   **[PubMed E-utilities](https://www.ncbi.nlm.nih.gov/books/NBK25500/)**: reproducible literature searches, PMID metadata, screening datasets
+-   **[ClinicalTrials.gov API](https://clinicaltrials.gov/data-api/about-api)**: trial registry metadata, eligibility criteria, reporting compliance
+
+### Terminologies and coding
+
+-   **[UMLS REST API](https://documentation.uts.nlm.nih.gov/rest/home.html)**: crosswalk SNOMED CT, ICD-10, CPT, and LOINC through UMLS concept IDs (CUIs). Needs a free UTS account
+-   **[RxNav and RxNorm APIs](https://lhncbc.nlm.nih.gov/RxNav/APIs/index.html)**: drug concepts, ingredients, and RxTerms hierarchies
+-   **[VSAC SVS API](https://www.nlm.nih.gov/vsac/support/usingvsac/vsacsvsapiv2.html)**: NLM value set expansions and OIDs
+
+### EHR and patient care
+
+-   **[MedlinePlus Connect](https://medlineplus.gov/medlineplus-connect/)**: link diagnosis and drug codes to patient information
+-   **[OHDSI Athena](https://athena.ohdsi.org/search-terms/start)**: standardized vocabularies for the OMOP Common Data Model
+-   **REDCap**: export and import study data. Ask your REDCap administrator for an API token for your project
+
+### Surveillance and FDA
+
+-   **[openFDA](https://open.fda.gov/apis/)**: adverse event reports (FAERS), drug labels, device recalls
+-   **[CDC WONDER API](https://wonder.cdc.gov/wonder/help/wonder-api.html)**: mortality and underlying cause of death
+-   **[Socrata API docs](https://dev.socrata.com/docs/endpoints)**: the `$select`, `$where`, and `$limit` syntax used by CDC and many state data portals
+
+### Demographics and local data
+
+-   **[Census Developer Portal](https://www.census.gov/data/developers/data-sets.html)**: population denominators and social determinants of health. Needs a free key
+-   **[Census Reporter](https://censusreporter.org)**: search for ACS tables and variable codes
+-   **[CT Open Data Portal](https://data.ct.gov)**: Connecticut health and policy datasets (Socrata)
+
+## Web scraping
+
+### R tools and ethics
+
+-   **[rvest](https://rvest.tidyverse.org/)**: the core static HTML parser (`html_element()`, `html_text2()`, `html_table()`)
+-   **[polite](https://dmi3kno.github.io/polite/)**: checks `robots.txt` and manages crawl delays for you
+
+### Browser automation
+
+-   **[Playwright](https://playwright.dev/)**: modern browser automation for JavaScript-heavy pages, clicks, dropdowns, and downloads
+-   **[RSelenium](https://docs.ropensci.org/RSelenium/)**: browser automation from R
+
+### Selectors and inspecting pages
+
+-   **[CSS selectors (MDN)](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors)**: target elements by class (`.class`), ID (`#id`), or attribute (`[attr=val]`)
+-   **[XPath syntax (W3Schools)](https://www.w3schools.com/xml/xpath_syntax.asp)**: navigate the HTML document tree
+
+### Compliance
+
+-   **[robotstxt (R package)](https://github.com/ropensci/robotstxt)**: check crawler rules in R with `paths_allowed()`
+-   **[The Robots Exclusion Standard](https://www.robotstxt.org/)**: what `Disallow` and `Crawl-delay` mean
+
+### Health data examples
+
+-   **[CDC FluView Interactive](https://gis.cdc.gov/grasp/fluview/main.html)**: a dynamic web app (the Playwright example in Lesson 2)
+-   **[WHO Data Portal](https://www.who.int/data)**: global health indicators
+
+## Packages used in the course
+
+| Package | What we use it for |
+|---|---|
+| [httr2](https://httr2.r-lib.org/) | Building and sending API requests (modern, pipe-based) |
+| [httr](https://httr.r-lib.org/) | Sending API requests (older, single-call style) |
+| [jsonlite](https://jeroen.r-universe.dev/jsonlite) | Parsing JSON into R lists and data frames |
+| [nhanesA](https://cran.r-project.org/package=nhanesA) | NHANES survey data |
+| [tidycensus](https://walker-data.com/tidycensus/) | Census and ACS data |
+| [rvest](https://rvest.tidyverse.org/) | Downloading and parsing HTML |
+| [polite](https://dmi3kno.github.io/polite/), [robotstxt](https://github.com/ropensci/robotstxt) | Scraping politely and checking `robots.txt` |
+| [tidyverse](https://www.tidyverse.org/) | Data wrangling (`dplyr`, `readr`, `tibble`) |
+| [janitor](https://sfirke.github.io/janitor/) | `clean_names()` |
+| [flextable](https://ardata-fr.github.io/flextable-book/), [scales](https://scales.r-lib.org/) | Formatted tables and numbers |
+
+## Questions?
+
+Email [maximilian.wegener@yale.edu](mailto:maximilian.wegener@yale.edu).

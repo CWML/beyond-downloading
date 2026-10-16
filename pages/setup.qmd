@@ -1,0 +1,91 @@
+---
+title: "Setup"
+subtitle: "Do this before the first session"
+---
+
+Setup problems take a long time to fix during class, so please get ready **before** the first session.
+
+## 1. Install R and an editor
+
+-   **R** (version 4.1 or newer): <https://cran.r-project.org/>
+-   **An editor**: [RStudio](https://posit.co/download/rstudio-desktop/) or [Positron](https://positron.posit.co/). Either works.
+
+## 2. Install the R packages
+
+Copy this into the R console and press Enter. It takes a few minutes.
+
+```{r}
+install.packages(c(
+  # APIs
+  "httr", "httr2", "jsonlite", "nhanesA", "tidycensus",
+  # Web scraping
+  "rvest", "xml2", "polite", "robotstxt",
+  # Data cleaning and tables
+  "tidyverse", "janitor", "flextable", "scales"
+))
+```
+
+## 3. Get a Census API key (for Lesson 1)
+
+The Census API needs a free key. It arrives by email within a few minutes.
+
+1.  Request a key: <https://api.census.gov/data/key_signup.html>
+2.  Open your `.Renviron` file:
+
+    ```{r}
+    file.edit("~/.Renviron")
+    ```
+
+3.  Add this line (with your key), save the file, and **restart R**:
+
+    ``` text
+    CENSUS_API_KEY=YOUR_KEY_HERE
+    ```
+
+::: callout-warning
+## Keep your key private
+
+Never paste API keys into your scripts, and never commit them to GitHub. Keeping them in `.Renviron` keeps them out of your code.
+:::
+
+## 4. Download the course folder
+
+[⬇ Course folder (ZIP)](https://github.com/CWML/beyond-downloading/archive/refs/heads/main.zip){.btn .btn-outline-primary .btn-sm}
+
+Unzip it somewhere you can find it (not your Downloads folder). The demo files are:
+
+-   `APIs/API_demonstration.qmd` (Lesson 1)
+-   `web_scraping/web_scraping_demonstration.qmd` (Lesson 2)
+-   `web_scraping/scraping_using_playwright.py` (Lesson 2, optional Python example)
+
+## 5. (Optional) Python for dynamic scraping
+
+The CDC FluView example in Lesson 2 uses Python and [Playwright](https://playwright.dev/python/). You only need this if you want to run that example yourself.
+
+``` bash
+pip install playwright pandas jupyter
+playwright install chromium
+```
+
+::: callout-note
+The Playwright script is written to run in a **Jupyter notebook** (it uses `await` at the top level). Paste it into a notebook cell rather than running `python scraping_using_playwright.py`.
+:::
+
+## 6. Test your setup
+
+Run this in R. Each line should print the result in its comment.
+
+```{r}
+library(rvest)
+read_html("https://example.com") |> html_element("h1") |> html_text2()
+# [1] "Example Domain"
+
+library(httr2)
+request("https://clinicaltrials.gov/api/v2/version") |> req_perform() |> resp_status()
+# [1] 200
+
+Sys.getenv("CENSUS_API_KEY") != ""
+# [1] TRUE
+```
+
+If you see an error, email [maximilian.wegener@yale.edu](mailto:maximilian.wegener@yale.edu) before the first session.

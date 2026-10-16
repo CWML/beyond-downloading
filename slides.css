@@ -1,0 +1,4 @@
+/* Accessibility: orange code text is hard to read on the light callout title bar */
+.reveal .callout .callout-title code {
+  color: #9a3412;
+}

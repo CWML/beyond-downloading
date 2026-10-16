@@ -1,0 +1,75 @@
+---
+title: "Lesson 1: APIs"
+subtitle: "Automating data retrieval with APIs"
+---
+
+::: downloads
+[🖥️ View slides](../../APIs/APIs.qmd){.btn .btn-outline-primary .btn-sm} [⬇ Download slides (HTML)](../../APIs/APIs.qmd){.btn .btn-outline-secondary .btn-sm download="beyond-downloading-APIs-slides.html"} [⬇ Demo file (.qmd)](https://github.com/CWML/beyond-downloading/blob/main/APIs/API_demonstration.qmd){.btn .btn-outline-secondary .btn-sm} [⬇ Whole course folder (ZIP)](https://github.com/CWML/beyond-downloading/archive/refs/heads/main.zip){.btn .btn-outline-secondary .btn-sm}
+:::
+
+::: callout-note
+## In this session you will learn to
+
+1.  Explain what an API is and why researchers use them
+2.  Make API requests and parse JSON into analysis-ready tables in R
+3.  Use public health and biomedical APIs, including the Census API
+
+**Before you start:** complete the [Setup](../setup.qmd), including the Census API key, and open `APIs/API_demonstration.qmd`.
+:::
+
+::: callout-tip
+## Viewing the slides
+
+Press **F** for full screen and **Esc** for an overview of all slides. To save them as a PDF, add `?print-pdf` to the end of the slide URL and print the page to PDF (works best in Chrome).
+:::
+
+## What is an API?
+
+An **Application Programming Interface (API)** is a structured way to request data from a service. For researchers, an API is "programmable search + download":
+
+-   **Predictable formats**: usually JSON, sometimes XML or CSV
+-   **Documented inputs**: the parameters you can filter on
+-   **Standardized outputs**: the same fields every time
+
+Every example in this lesson follows the same data journey:
+
+```
+API Request ──► JSON / XML Response ──► Parse & Flatten in R
+            ──► Data Frame (Tibble) ──► (Optional) Save as CSV
+```
+
+## The researcher loop
+
+1.  **Identify source + documentation**: read the API docs before writing any code
+2.  **Draft a query**: fields, filters, and time range
+3.  **Request data**: respect rate limits
+4.  **Validate + clean**: check dimensions, types, and missing values
+5.  **Save raw + processed data**
+6.  **Record provenance**: URL, parameters, date, and API version
+
+## The live demo
+
+The demo walks through six data sources, from easiest to hardest:
+
+| \# | Source | What it shows | Key needed? |
+|----|--------|---------------|-------------|
+| 1 | NHANES (`nhanesA`) | An R package that wraps an API; joining modules on `SEQN` | No |
+| 2 | PubMed (NCBI E-utilities) | Building a request with `httr2`; drilling into nested JSON | No (optional key raises the rate limit) |
+| 3 | ClinicalTrials.gov | The single-call `httr` style; `flatten = TRUE` | No |
+| 4 | openFDA | Field-specific `search` filters; `limit` and `skip` | No (optional key raises the rate limit) |
+| 5 | CDC Open Data (Socrata) | Finding a dataset in a catalog, then querying it | No |
+| 6 | Census (`tidycensus`) | Storing a key safely; ACS variables; a formatted table | **Yes** |
+
+**[👀 Open the demo code](../../APIs/API_demonstration.qmd)** to follow along, or download the demo file above and run it one chunk at a time.
+
+## Ground rules
+
+-   Prefer **official APIs** and **bulk downloads** over scraping
+-   Respect **terms of use**, **rate limits**, and institutional policy
+-   Avoid collecting **PII/PHI**
+-   Use **caching** and **delays** to reduce load on the server
+-   Document provenance: *what you requested, when, and from where*
+
+## Next
+
+Continue to [Lesson 2: Web scraping](02-web-scraping.qmd), or see [Resources](../resources.qmd) for API documentation links.

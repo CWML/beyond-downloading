@@ -7,6 +7,8 @@ format:
   revealjs:
     theme: simple
     slide-number: true
+    embed-resources: true
+    css: ../slides.css
     #footer: "Ask → Read → Run → Verify → Iterate"
     code-line-numbers: false
     title-slide-attributes:
@@ -119,7 +121,7 @@ Programmatically extracting data directly from web pages (HTML/DOM).
 - **Capturing visual context or exact web layout** is necessary for research auditability
 :::
 
-# Common Research Workflow {background-color="#1E293B"}
+## Common Research Workflow {background-color="#1E293B"}
 
 ::: {style="margin-top: 1.5em;"}
 :::
@@ -301,7 +303,7 @@ Always check status codes! If your script receives a `429` or `403`, stop immedi
 ::: incremental
 1.  **Identify source + inspect DOM**: Review site `robots.txt`, Terms of Service, and target table structure.
 
-2.  **Draft selector strategy**: Identify target XPaths (e.g., `/html/body/.../table`) or CSS class selectors.
+2.  **Draft selector strategy**: Identify target XPaths (e.g., `//*[@id="mwAaI"]/table`) or CSS class selectors.
 
 3.  **Fetch web page**: Download page HTML into R memory using `read_html()` *(passes standard GET headers)*.
 
@@ -368,11 +370,13 @@ Extracting global COVID-19 pandemic case counts and mortality data by country di
 
 - The target content lives inside `<div class="mw-parser-output">`.
 - The data table itself is a `<table class="wikitable sortable">` element.
-- Right-click the `<table>` tag in DevTools $\rightarrow$ **Copy** $\rightarrow$ **Copy Full XPath**.
+- Right-click the `<table>` tag in DevTools $\rightarrow$ **Copy** $\rightarrow$ **Copy XPath** (not "Copy full XPath").
 
 ::: {.callout-note icon="false"}
-**Example Full XPath:**\
-`/html/body/div[3]/div/div[3]/main/div[3]/div[3]/div[2]/div[24]/table`
+**Example XPath:**\
+`//*[@id="mwAaI"]/table`
+
+The full XPath (`/html/body/div[3]/...`) describes the page *after* the browser runs its JavaScript, so it often finds nothing in the raw HTML that R downloads.
 :::
 
 ------------------------------------------------------------------------
@@ -435,7 +439,7 @@ Please navigate to and open:\
 
 ### 📧 Thank You & Stay Connected!
 
-- **Questions or Feedback?** Email: `maximilian.wegener@yale.edu`
+- **Questions or Feedback?** Email: [maximilian.wegener@yale.edu](mailto:maximilian.wegener@yale.edu?subject=Beyond%20Downloading%20feedback)
 
 ------------------------------------------------------------------------
 
@@ -449,4 +453,4 @@ Please navigate to and open:\
 ::: {style="margin-top: 1.5em;"}
 :::
 
-![](images/paste-1.png)
+![](images/paste-1.png){fig-alt="QR code that opens the class survey"}

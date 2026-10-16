@@ -1,0 +1,32 @@
+/* Download buttons at the top of each lesson */
+.downloads a.btn {
+  margin: 0.15rem 0.35rem 0.35rem 0;
+}
+
+/* Lesson list on the home page */
+.lesson-list li {
+  margin-bottom: 0.35rem;
+}
+
+/* Dark mode: the theme gives code in headings and table headers a light
+   background with white text, so match the background used for other code */
+body.quarto-dark :is(h1, h2, h3, h4, h5, h6, th) code {
+  background-color: rgba(67, 67, 67, 0.65);
+}
+
+/* Accessibility: outline buttons, page links, and quotes need at least 4.5:1 contrast */
+body.quarto-light .btn-outline-primary {
+  --bs-btn-color: #1b5fae;
+  --bs-btn-border-color: #1b5fae;
+}
+body.quarto-dark .btn-outline-primary,
+body.quarto-dark .btn-outline-secondary {
+  --bs-btn-color: #e9ecef;
+  --bs-btn-border-color: #adb5bd;
+}
+body.quarto-dark .page-navigation .nav-page-text {
+  color: #dee2e6;
+}
+body.quarto-light blockquote {
+  color: #495057;
+}

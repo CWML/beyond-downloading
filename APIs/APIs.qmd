@@ -7,6 +7,8 @@ format:
   revealjs:
     theme: simple
     slide-number: true
+    embed-resources: true
+    css: ../slides.css
     #footer: "Ask → Read → Run → Verify → Iterate"
     code-line-numbers: false
     title-slide-attributes:
@@ -14,8 +16,6 @@ format:
 execute:
   echo: true
   eval: false
-filters:
-  - webr
 ---
 
 ## Welcome + Goals {background-color="#1E293B"}
@@ -602,7 +602,7 @@ Please switch over to your editor and open:\
 
 ### 📧 Thank You & Stay Connected!
 
-- **Questions or Feedback?** Email: `maximilian.wegener@yale.edu`
+- **Questions or Feedback?** Email: [maximilian.wegener@yale.edu](mailto:maximilian.wegener@yale.edu?subject=Beyond%20Downloading%20feedback)
 
 ------------------------------------------------------------------------
 
@@ -616,4 +616,4 @@ Please switch over to your editor and open:\
 ::: {style="margin-top: 1.5em;"}
 :::
 
-![](images/paste-1.png)
+![](images/paste-1.png){fig-alt="QR code that opens the class survey"}

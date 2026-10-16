@@ -1,0 +1,48 @@
+---
+title: "Beyond Downloading"
+subtitle: "Automating data retrieval with APIs and web scraping: a practical guide for biomedical and public health researchers"
+toc: false
+---
+
+Welcome! Most research data starts with someone clicking **Download**. This course shows you how to get data with code instead, so your data pulls are **reproducible**, **easy to update**, and **documented**. You will request data from public health and biomedical **APIs** (PubMed, ClinicalTrials.gov, openFDA, CDC, the Census), and **scrape** data from web pages when there is no API.
+
+All examples are in **R**. The dynamic web scraping example also uses **Python** (Playwright).
+
+## What you'll learn
+
+-   Explain what an API is, and why researchers prefer APIs over scraping
+-   Make API requests and turn JSON responses into analysis-ready tables in R
+-   Use public health and biomedical APIs, including ones that need a key (the Census API)
+-   Decide when web scraping is appropriate, and follow the rules (`robots.txt`, Terms of Service)
+-   Scrape static HTML tables with `rvest`, using XPaths and CSS selectors
+-   Recognize when a page needs a real browser (dynamic scraping), and automate one with Playwright
+-   Record provenance (what you requested, when, and from where) so others can reproduce your data pull
+
+## Start here
+
+1.  **[Setup](pages/setup.qmd)**: install R and the packages, get a Census API key, and download the course folder. Please do this **before** the first session.
+2.  **Work through the lessons in order:**
+
+::: lesson-list
+| \# | Lesson | You will learn |
+|----|--------|----------------|
+| 1 | [APIs](pages/lessons/01-apis.qmd) | requests, JSON, `httr`/`httr2`, NHANES, PubMed, ClinicalTrials.gov, openFDA, CDC (Socrata), Census |
+| 2 | [Web scraping](pages/lessons/02-web-scraping.qmd) | `robots.txt`, the DOM, XPaths, `rvest`, static vs dynamic scraping, Playwright |
+:::
+
+## How each session works
+
+1.  **🖥️ Slides**: the concepts, the rules, and a tour of the data sources. Every lesson page links to its slides, and you can download them.
+2.  **👀 Live demo**: the instructor runs the demo code step by step, and you run the same code in your own copy of the demo file.
+
+::: callout-tip
+## Learning on your own?
+
+You can! Each lesson page links to the slides and the full demo code. Download the demo file and run it one chunk at a time in R.
+:::
+
+## About this course
+
+Created by Max Wegener at the [Cushing/Whitney Medical Library](https://library.medicine.yale.edu/), Yale School of Medicine. Questions or feedback: [maximilian.wegener@yale.edu](mailto:maximilian.wegener@yale.edu).
+
+The materials are on [GitHub](https://github.com/CWML/beyond-downloading).
