@@ -70,6 +70,12 @@ The demo walks through six data sources, from easiest to hardest:
 -   Use **caching** and **delays** to reduce load on the server
 -   Document provenance: *what you requested, when, and from where*
 
+::: callout-note
+## Attended the session?
+
+Please take the [class survey](https://yalesurvey.ca1.qualtrics.com/jfe/form/SV_cZOk3RQmTrQLhYy). It takes a few minutes and helps us improve the course.
+:::
+
 ## Next
 
 Continue to [Lesson 2: Web scraping](02-web-scraping.qmd), or see [Resources](../resources.qmd) for API documentation links.

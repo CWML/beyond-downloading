@@ -262,7 +262,7 @@
     "href": "pages/lessons/02-web-scraping.html#the-live-demo",
     "title": "Lesson 2: Web Scraping",
     "section": "The live demo",
-    "text": "The live demo\n\n\n\n\n\n\n\n\n\n#\nExample\nLanguage\nWhat it shows\n\n\n\n\n1\nOne Wikipedia table\nR\nFetch once, select by XPath, clean, save a snapshot, log provenance\n\n\n2\nSeveral Wikipedia tables\nR\nA reusable scrape_by_xpath() function; exporting CSVs\n\n\n3\nCDC FluView\nPython\nPlaywright clicks through a download dialog and saves the file\n\n\n4\nWriting code with AI\n(prompt)\nHow to ask Yale’s Clarity platform to draft scraping code\n\n\n\n👀 Open the demo code to follow along, or download the demo file above and run it one chunk at a time.\n\n\n\n\n\n\nWarningWeb pages change\n\n\n\nWebsites change their layout without warning, and an XPath that works today can break tomorrow. That’s why the demos save an HTML snapshot and log the selectors they used. If a demo fails, inspect the page again and update the XPath.",
+    "text": "The live demo\n\n\n\n\n\n\n\n\n\n#\nExample\nLanguage\nWhat it shows\n\n\n\n\n1\nOne Wikipedia table\nR\nFetch once, select by XPath, clean, save a snapshot, log provenance\n\n\n2\nSeveral Wikipedia tables\nR\nA reusable scrape_by_xpath() function; exporting CSVs\n\n\n3\nCDC FluView\nPython\nPlaywright clicks through a download dialog and saves the file\n\n\n4\nWriting code with AI\n(prompt)\nHow to ask Yale’s Clarity platform to draft scraping code\n\n\n\n👀 Open the demo code to follow along, or download the demo file above and run it one chunk at a time.\n\n\n\n\n\n\nWarningWeb pages change\n\n\n\nWebsites change their layout without warning, and an XPath that works today can break tomorrow. That’s why the demos save an HTML snapshot and log the selectors they used. If a demo fails, inspect the page again and update the XPath.\n\n\n\n\n\n\n\n\nNoteAttended the session?\n\n\n\nPlease take the class survey. It takes a few minutes and helps us improve the course.",
     "crumbs": [
       "Lessons",
       "Lesson 2: Web Scraping"
@@ -560,7 +560,7 @@
     "href": "pages/lessons/01-apis.html#ground-rules",
     "title": "Lesson 1: APIs",
     "section": "Ground rules",
-    "text": "Ground rules\n\nPrefer official APIs and bulk downloads over scraping\nRespect terms of use, rate limits, and institutional policy\nAvoid collecting PII/PHI\nUse caching and delays to reduce load on the server\nDocument provenance: what you requested, when, and from where",
+    "text": "Ground rules\n\nPrefer official APIs and bulk downloads over scraping\nRespect terms of use, rate limits, and institutional policy\nAvoid collecting PII/PHI\nUse caching and delays to reduce load on the server\nDocument provenance: what you requested, when, and from where\n\n\n\n\n\n\n\nNoteAttended the session?\n\n\n\nPlease take the class survey. It takes a few minutes and helps us improve the course.",
     "crumbs": [
       "Lessons",
       "Lesson 1: APIs"
@@ -827,7 +827,7 @@
     "href": "APIs/APIs.html#survey",
     "title": "Beyond Downloading: Automating Data Retrieval with APIs",
     "section": "Survey",
-    "text": "Survey\n\n\n\nPlease scan the QR code to take the class survey"
+    "text": "Survey\n\n\n\nPlease scan the QR code to take the class survey\nOr open it here: Class survey"
   },
   {
     "objectID": "web_scraping/web_scraping.html#welcome-goals",
@@ -981,6 +981,6 @@
     "href": "web_scraping/web_scraping.html#survey",
     "title": "Beyond Downloading: Automating Data Retrieval with Web Scraping",
     "section": "Survey",
-    "text": "Survey\n\n\n\nPlease scan the QR code to take the class survey"
+    "text": "Survey\n\n\n\nPlease scan the QR code to take the class survey\nOr open it here: Class survey"
   }
 ]

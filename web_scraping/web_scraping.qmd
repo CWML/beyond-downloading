@@ -450,7 +450,6 @@ Please navigate to and open:\
 
 ### Please scan the QR code to take the class survey
 
-::: {style="margin-top: 1.5em;"}
-:::
+Or open it here: [Class survey](https://yalesurvey.ca1.qualtrics.com/jfe/form/SV_cZOk3RQmTrQLhYy)
 
-![](images/paste-1.png){fig-alt="QR code that opens the class survey"}
+[![](images/paste-1.png){fig-alt="QR code that opens the class survey"}](https://yalesurvey.ca1.qualtrics.com/jfe/form/SV_cZOk3RQmTrQLhYy)

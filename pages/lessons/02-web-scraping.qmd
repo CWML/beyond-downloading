@@ -83,6 +83,12 @@ Target URL ──► HTML/DOM Response ──► Select & Target Nodes
 Websites change their layout without warning, and an XPath that works today can break tomorrow. That's why the demos save an HTML snapshot and log the selectors they used. If a demo fails, inspect the page again and update the XPath.
 :::
 
+::: callout-note
+## Attended the session?
+
+Please take the [class survey](https://yalesurvey.ca1.qualtrics.com/jfe/form/SV_cZOk3RQmTrQLhYy). It takes a few minutes and helps us improve the course.
+:::
+
 ## Next
 
 See [Resources](../resources.qmd) for scraping tools, selector guides, and `robots.txt` references.
